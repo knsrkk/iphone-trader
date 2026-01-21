@@ -16,6 +16,10 @@ class iPhoneTraderApp {
         // Подписки для обновлений в реальном времени
         this.productsUnsubscribe = null;
         this.partsUnsubscribe = null;
+
+        // Новые массивы для фото при редактировании
+        this.editPhotos = []; // Существующие фото после удаления
+        this.newEditPhotos = []; // Новые добавленные фото
         
         // Состояние загрузки
         this.isLoading = false;
@@ -996,6 +1000,10 @@ class iPhoneTraderApp {
             return;
         }
         
+        // Сбрасываем массивы фото при каждом новом редактировании
+        this.editPhotos = [...(product.photos || [])];
+        this.newEditPhotos = [];
+        
         form.innerHTML = `
             <div class="form-section">
                 <h3 class="form-section-title">Основная информация</h3>
@@ -1006,7 +1014,7 @@ class iPhoneTraderApp {
                     </label>
                     <input type="text" id="editProductName" class="form-input" value="${product.name || ''}" required>
                 </div>
-
+    
                 <div class="form-row">
                     <div class="form-group">
                         <label for="editPurchasePrice" class="form-label">
@@ -1027,7 +1035,7 @@ class iPhoneTraderApp {
                         </div>
                     </div>
                 </div>
-
+    
                 <div class="form-group">
                     <label for="editProductCategory" class="form-label">
                         <i class="fas fa-folder"></i> Категория
@@ -1041,7 +1049,7 @@ class iPhoneTraderApp {
                         <i class="fas fa-chevron-down"></i>
                     </div>
                 </div>
-
+    
                 <div id="editPhoneStatusGroup" style="${product.category === 'phones' ? '' : 'display: none;'}">
                     <div class="form-group">
                         <label for="editPhoneStatus" class="form-label">
@@ -1058,7 +1066,7 @@ class iPhoneTraderApp {
                         </div>
                     </div>
                 </div>
-
+    
                 <div class="form-group">
                     <label for="editRequiredParts" class="form-label">
                         <i class="fas fa-wrench"></i> Нужные запчасти
@@ -1066,7 +1074,7 @@ class iPhoneTraderApp {
                     <textarea id="editRequiredParts" class="form-textarea" rows="2">${product.requiredParts || ''}</textarea>
                 </div>
             </div>
-
+    
             <!-- Существующие фото -->
             <div class="form-section">
                 <h3 class="form-section-title">Существующие фотографии</h3>
@@ -1090,72 +1098,55 @@ class iPhoneTraderApp {
                     `}
                 </div>
             </div>
-
+    
+            <!-- iOS предупреждение -->
+            ${this.isIOS() ? `
+            <div class="ios-warning">
+                <i class="fas fa-mobile-alt"></i>
+                <div>
+                    <strong>iOS устройство:</strong> Для загрузки фото используйте JPEG формат.
+                    HEIC фото будут автоматически конвертированы.
+                </div>
+            </div>
+            ` : ''}
+    
+            <!-- Индикатор загрузки -->
+            <div class="upload-progress-container" id="editUploadProgressContainer" style="display: none;">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="editUploadProgress"></div>
+                </div>
+                <div class="upload-progress-text" id="editUploadProgressText">Обработка фото...</div>
+            </div>
+    
             <!-- Добавление новых фото -->
             <div class="form-section">
-    <h3 class="form-section-title">Фотографии</h3>
+                <h3 class="form-section-title">Добавить новые фотографии</h3>
+                <div class="form-group">
+                    <div class="attachments-container">
+                        <div class="attachment-option">
+                            <div class="attachment-icon">
+                                <i class="fas fa-camera"></i>
+                            </div>
+                            <span>Добавить фото</span>
+                            <input type="file" accept="image/*" class="attachment-input" id="editPhotoInput" multiple>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-hint">
+                    <i class="fas fa-info-circle"></i>
+                    Можно добавить несколько фото. iOS HEIC фото автоматически конвертируются в JPEG.
+                </div>
+            </div>
     
-    <!-- Настройки качества -->
-    <div class="form-group">
-        <div class="quality-settings">
-            <div class="quality-option active" data-quality="high">
-                <div class="quality-icon">
-                    <i class="fas fa-camera"></i>
-                </div>
-                <div class="quality-info">
-                    <div class="quality-name">Высокое качество</div>
-                    <div class="quality-desc">До 1200px, 70% качества</div>
-                </div>
-            </div>
-            <div class="quality-option" data-quality="medium">
-                <div class="quality-icon">
-                    <i class="fas fa-compress-alt"></i>
-                </div>
-                <div class="quality-info">
-                    <div class="quality-name">Среднее качество</div>
-                    <div class="quality-desc">До 800px, 50% качества</div>
-                </div>
-            </div>
-            <div class="quality-option" data-quality="low">
-                <div class="quality-icon">
-                    <i class="fas fa-file-export"></i>
-                </div>
-                <div class="quality-info">
-                    <div class="quality-name">Экономное</div>
-                    <div class="quality-desc">До 600px, 30% качества</div>
-                </div>
-            </div>
-        </div>
-        <div class="upload-progress-container" style="display: none; margin-top: 10px;">
-    <div class="upload-progress-bar">
-        <div class="upload-progress-fill" id="uploadProgress"></div>
-    </div>
-    <div class="upload-progress-text" id="uploadProgressText">Обработка фото...</div>
-</div>
-    </div>
-    
-    <div class="attachments-container">
-        <div class="attachment-option">
-            <div class="attachment-icon">
-                <i class="fas fa-camera"></i>
-            </div>
-            <span>Добавить фото</span>
-            <input type="file" accept="image/*" class="attachment-input" id="photoInput" multiple>
-        </div>
-    </div>
-    
-    <div class="form-hint">
-        <i class="fas fa-info-circle"></i>
-        Фото автоматически сжимаются. iPhone HEIC конвертируются в JPEG.
-    </div>
-</div>
-
             <!-- Предпросмотр новых фото -->
             <div class="form-section" id="editPhotoPreviewSection" style="display: none;">
-                <h3 class="form-section-title">Предпросмотр новых фото</h3>
+                <h3 class="form-section-title">Новые фотографии</h3>
                 <div class="photo-preview" id="editPhotoPreview"></div>
+                <div class="form-hint">
+                    Новые фото будут добавлены к существующим
+                </div>
             </div>
-
+    
             <div class="form-section">
                 <h3 class="form-section-title">Описание</h3>
                 <div class="form-group">
@@ -1165,7 +1156,7 @@ class iPhoneTraderApp {
                     <textarea id="editProductDescription" class="form-textarea" rows="4">${product.description || ''}</textarea>
                 </div>
             </div>
-
+    
             <div class="form-actions">
                 <button type="button" class="btn btn-danger" id="deleteProductBtn">
                     <i class="fas fa-trash"></i> Удалить товар
@@ -1183,48 +1174,98 @@ class iPhoneTraderApp {
         `;
         
         // Сохраняем текущие фото для редактирования
-        this.editPhotos = [...(product.photos || [])];
-        this.newPhotos = [];
-        
-        // Добавляем обработчики событий
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProductChanges(product.id);
+    this.editPhotos = [...(product.photos || [])];
+    this.newEditPhotos = [];
+    
+    // Добавляем обработчики событий
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.saveProductChanges(product.id);
+    });
+    
+    document.getElementById('cancelEditBtn').addEventListener('click', () => {
+        this.switchPage('productDetail');
+    });
+    
+    document.getElementById('deleteProductBtn').addEventListener('click', () => {
+        this.openDeleteModal(product);
+    });
+    
+    // Показываем/скрываем поле статуса телефона
+    document.getElementById('editProductCategory')?.addEventListener('change', (e) => {
+        const phoneStatusGroup = document.getElementById('editPhoneStatusGroup');
+        if (phoneStatusGroup) {
+            phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
+        }
+    });
+    
+    // Удаление существующих фото
+    document.querySelectorAll('.remove-photo-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const index = parseInt(btn.dataset.index);
+            this.editPhotos.splice(index, 1);
+            this.renderEditForm({...product, photos: this.editPhotos});
         });
+    });
+    
+    // Добавление новых фото при редактировании
+    document.getElementById('editPhotoInput')?.addEventListener('change', async (e) => {
+        await this.handleEditPhotoUpload(e.target);
+    });
+}
+
+// Новый метод для обработки загрузки фото при редактировании
+// Новый метод для обработки загрузки фото при редактировании
+async handleEditPhotoUpload(input) {
+    try {
+        // Показываем индикатор загрузки
+        const progressContainer = document.getElementById('editUploadProgressContainer');
+        const progressBar = document.getElementById('editUploadProgress');
+        const progressText = document.getElementById('editUploadProgressText');
         
-        document.getElementById('cancelEditBtn').addEventListener('click', () => {
-            this.switchPage('productDetail');
-        });
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+        }
         
-        document.getElementById('deleteProductBtn').addEventListener('click', () => {
-            this.openDeleteModal(product);
-        });
+        // Загружаем фото
+        const newPhotos = await this.handlePhotoUpload(input);
         
-        // Показываем/скрываем поле статуса телефона
-        document.getElementById('editProductCategory')?.addEventListener('change', (e) => {
-            const phoneStatusGroup = document.getElementById('editPhoneStatusGroup');
-            if (phoneStatusGroup) {
-                phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
-            }
-        });
+        // Инициализируем массив если не существует
+        if (!this.newEditPhotos) {
+            this.newEditPhotos = [];
+        }
         
-        // Удаление существующих фото
-        document.querySelectorAll('.remove-photo-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const index = parseInt(btn.dataset.index);
-                this.editPhotos.splice(index, 1);
-                this.renderEditForm({...product, photos: this.editPhotos});
-            });
-        });
+        // Добавляем к новым фото для этого редактирования
+        this.newEditPhotos = [...this.newEditPhotos, ...newPhotos];
         
-        // Добавление новых фото
-        document.getElementById('editPhotoInput')?.addEventListener('change', async (e) => {
-            const newPhotos = await this.handlePhotoUpload(e.target);
-            this.newPhotos = [...this.newPhotos, ...newPhotos];
-            this.showEditPhotoPreview();
-        });
+        // Показываем превью
+        this.showEditPhotoPreview();
+        
+        // Обновляем индикатор
+        if (progressBar && progressText) {
+            progressBar.style.width = '100%';
+            progressText.textContent = `Загружено ${newPhotos.length} фото`;
+            
+            // Скрываем через 2 секунды
+            setTimeout(() => {
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('Ошибка загрузки фото при редактировании:', error);
+        this.showToast('Ошибка', 'Не удалось загрузить фото', 'error');
+        
+        const progressContainer = document.getElementById('editUploadProgressContainer');
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
     }
+}
     
     // Отображение списка запчастей
     renderPartsList() {
@@ -1342,62 +1383,75 @@ class iPhoneTraderApp {
     }
     
     // Сохранение изменений товара
-    async saveProductChanges(productId) {
-        if (!this.checkAuth()) return;
-        
-        const product = this.products.find(p => p.id === productId);
-        if (!product) {
-            this.showToast('Ошибка', 'Товар не найден', 'error');
-            return;
-        }
-        
-        const updates = {
-            name: document.getElementById('editProductName').value.trim(),
-            purchasePrice: parseInt(document.getElementById('editPurchasePrice').value) || 0,
-            investment: parseInt(document.getElementById('editInvestment').value) || 0,
-            category: document.getElementById('editProductCategory').value,
-            description: document.getElementById('editProductDescription').value.trim(),
-            requiredParts: document.getElementById('editRequiredParts').value.trim(),
-            photos: [...this.editPhotos, ...this.newPhotos]
-        };
-        
-        // Добавляем статус телефона если это телефон
-        if (updates.category === 'phones') {
-            updates.phoneStatus = document.getElementById('editPhoneStatus').value;
-        }
-        
-        // Валидация
-        if (!updates.name) {
-            this.showToast('Ошибка', 'Введите название товара', 'error');
-            return;
-        }
-        
-        if (updates.purchasePrice <= 0) {
-            this.showToast('Ошибка', 'Введите корректную цену покупки', 'error');
-            return;
-        }
-        
-        console.log('Сохраняем изменения товара:', productId, updates);
-        
-        this.setButtonLoading('saveProductBtn', true);
-        
-        // Обновляем через Firebase
-        const result = await firebaseService.updateProduct(productId, updates);
-        
-        this.setButtonLoading('saveProductBtn', false);
-        
-        if (result.success) {
-            // Если изменились нужные запчасти, добавляем их в список
-            if (updates.requiredParts && updates.requiredParts !== product.requiredParts) {
-                await this.addRequiredPart(updates.requiredParts, updates.name);
-            }
-            
-            this.showToast('Успех', 'Товар успешно обновлен', 'success');
-            this.switchPage('productDetail');
-        } else {
-            this.showToast('Ошибка', result.error, 'error');
-        }
+   // Сохранение изменений товара
+// Сохранение изменений товара
+async saveProductChanges(productId) {
+    if (!this.checkAuth()) return;
+    
+    const product = this.products.find(p => p.id === productId);
+    if (!product) {
+        this.showToast('Ошибка', 'Товар не найден', 'error');
+        return;
     }
+    
+    // Инициализируем массивы если они undefined
+    if (!this.editPhotos) this.editPhotos = [];
+    if (!this.newEditPhotos) this.newEditPhotos = [];
+    
+    // Собираем все фото: старые (оставшиеся) + новые
+    const allPhotos = [...this.editPhotos, ...this.newEditPhotos];
+    
+    const updates = {
+        name: document.getElementById('editProductName').value.trim(),
+        purchasePrice: parseInt(document.getElementById('editPurchasePrice').value) || 0,
+        investment: parseInt(document.getElementById('editInvestment').value) || 0,
+        category: document.getElementById('editProductCategory').value,
+        description: document.getElementById('editProductDescription').value.trim(),
+        requiredParts: document.getElementById('editRequiredParts').value.trim(),
+        photos: allPhotos
+    };
+    
+    // Добавляем статус телефона если это телефон
+    if (updates.category === 'phones') {
+        updates.phoneStatus = document.getElementById('editPhoneStatus').value;
+    }
+    
+    // Валидация
+    if (!updates.name) {
+        this.showToast('Ошибка', 'Введите название товара', 'error');
+        return;
+    }
+    
+    if (updates.purchasePrice <= 0) {
+        this.showToast('Ошибка', 'Введите корректную цену покупки', 'error');
+        return;
+    }
+    
+    console.log('Сохраняем изменения товара:', productId, updates);
+    
+    this.setButtonLoading('saveProductBtn', true);
+    
+    // Обновляем через Firebase
+    const result = await firebaseService.updateProduct(productId, updates);
+    
+    this.setButtonLoading('saveProductBtn', false);
+    
+    if (result.success) {
+        // Если изменились нужные запчасти, добавляем их в список
+        if (updates.requiredParts && updates.requiredParts !== product.requiredParts) {
+            await this.addRequiredPart(updates.requiredParts, updates.name);
+        }
+        
+        // Сбрасываем массивы фото после успешного сохранения
+        this.editPhotos = [];
+        this.newEditPhotos = [];
+        
+        this.showToast('Успех', 'Товар успешно обновлен', 'success');
+        this.switchPage('productDetail');
+    } else {
+        this.showToast('Ошибка', result.error, 'error');
+    }
+}
     
     // Удаление товара
     async deleteProduct(productId) {

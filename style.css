@@ -2663,3 +2663,87 @@ body {
 .ios-warning i {
     margin-right: 5px;
 }
+/* Стили для формы редактирования фото */
+.edit-photo-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.edit-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.edit-photo-item {
+    position: relative;
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+}
+
+.edit-photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.edit-photo-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255, 59, 48, 0.9);
+    color: white;
+    border: none;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+
+.edit-photo-remove:hover {
+    background: var(--danger);
+    transform: scale(1.1);
+}
+
+/* Кнопка добавления фото в редактировании */
+.edit-add-photo-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 80px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.edit-add-photo-btn:hover {
+    border-color: var(--primary);
+    background: var(--bg-secondary);
+    color: var(--primary);
+}
+
+.edit-add-photo-btn i {
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.edit-add-photo-btn span {
+    font-size: 12px;
+    text-align: center;
+}
