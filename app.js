@@ -22,8 +22,151 @@ class iPhoneTraderApp {
         this.currentLoadingType = null;
         
         this.init();
+
+        this.compressionSettings = {
+            high: { maxWidth: 1200, quality: 0.7 },
+            medium: { maxWidth: 800, quality: 0.5 },
+            low: { maxWidth: 600, quality: 0.3 }
+        };
+        this.currentCompression = 'high';
+    }
+    compressImage(dataUrl, mimeType, customSettings = null) {
+        return new Promise((resolve, reject) => {
+            const settings = customSettings || this.compressionSettings[this.currentCompression];
+            const maxWidth = settings.maxWidth;
+            const quality = settings.quality;
+            
+            const img = new Image();
+            
+            img.onload = () => {
+                // Показываем прогресс
+                this.showCompressionProgress(true);
+                
+                // Создаем canvas для сжатия
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Рассчитываем новые размеры
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                
+                // Устанавливаем размеры canvas
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Рисуем сжатое изображение
+                const ctx = canvas.getContext('2d');
+                
+                // Улучшаем качество сжатия
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Конвертируем HEIC/HEIF в JPEG если нужно
+                let outputMimeType = mimeType;
+                if (mimeType === 'image/heic' || mimeType === 'image/heif' || mimeType === 'image/heif-sequence') {
+                    outputMimeType = 'image/jpeg';
+                }
+                
+                // Для WebP если браузер поддерживает
+                if (outputMimeType === 'image/jpeg' && this.supportsWebP()) {
+                    outputMimeType = 'image/webp';
+                }
+                
+                // Получаем сжатое изображение
+                try {
+                    const compressedDataUrl = canvas.toDataURL(outputMimeType, quality);
+                    
+                    // Скрываем прогресс
+                    this.showCompressionProgress(false);
+                    
+                    // Обновляем статистику
+                    this.updatePhotoStats(compressedDataUrl, {
+                        originalWidth: img.width,
+                        originalHeight: img.height,
+                        compressedWidth: width,
+                        compressedHeight: height,
+                        quality: quality
+                    });
+                    
+                    resolve(compressedDataUrl);
+                } catch (error) {
+                    this.showCompressionProgress(false);
+                    reject(error);
+                }
+            };
+            
+            img.onerror = (error) => {
+                this.showCompressionProgress(false);
+                reject(error);
+            };
+            
+            img.src = dataUrl;
+        });
     }
     
+    // Проверка поддержки WebP
+    supportsWebP() {
+        const elem = document.createElement('canvas');
+        if (!!(elem.getContext && elem.getContext('2d'))) {
+            return elem.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+        }
+        return false;
+    }
+    
+    // Показать/скрыть прогресс сжатия
+    showCompressionProgress(show = true) {
+        const progressBar = document.getElementById('compressionProgressBar');
+        const progressContainer = document.getElementById('compressionProgress');
+        
+        if (progressBar && progressContainer) {
+            if (show) {
+                progressContainer.classList.add('active');
+                progressBar.style.width = '0%';
+                setTimeout(() => {
+                    progressBar.style.width = '100%';
+                }, 10);
+            } else {
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                    setTimeout(() => {
+                        progressContainer.classList.remove('active');
+                    }, 300);
+                }, 500);
+            }
+        }
+    }
+    
+    // Обновить статистику фото
+    updatePhotoStats(dataUrl, stats) {
+        const statsContainer = document.getElementById('photoStats');
+        if (!statsContainer) return;
+        
+        const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
+        const sizeInBytes = Math.ceil(base64Length * 3 / 4);
+        const sizeInKB = Math.round(sizeInBytes / 1024);
+        
+        statsContainer.innerHTML = `
+            <div class="stat-item">
+                <i class="fas fa-expand-alt"></i>
+                <span>${stats.compressedWidth}×${stats.compressedHeight}</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-weight-hanging"></i>
+                <span>${sizeInKB} KB</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-compress-alt"></i>
+                <span>${Math.round(stats.quality * 100)}%</span>
+            </div>
+        `;
+        
+        statsContainer.style.display = 'flex';
+    }
     // Инициализация приложения
     async init() {
         console.log('Приложение инициализируется...');
@@ -926,19 +1069,56 @@ class iPhoneTraderApp {
 
             <!-- Добавление новых фото -->
             <div class="form-section">
-                <h3 class="form-section-title">Добавить новые фотографии</h3>
-                <div class="form-group">
-                    <div class="attachments-container">
-                        <div class="attachment-option">
-                            <div class="attachment-icon">
-                                <i class="fas fa-camera"></i>
-                            </div>
-                            <span>Добавить фото</span>
-                            <input type="file" accept="image/*" class="attachment-input" id="editPhotoInput" multiple>
-                        </div>
-                    </div>
+    <h3 class="form-section-title">Фотографии</h3>
+    
+    <!-- Настройки качества -->
+    <div class="form-group">
+        <div class="quality-settings">
+            <div class="quality-option active" data-quality="high">
+                <div class="quality-icon">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <div class="quality-info">
+                    <div class="quality-name">Высокое качество</div>
+                    <div class="quality-desc">До 1200px, 70% качества</div>
                 </div>
             </div>
+            <div class="quality-option" data-quality="medium">
+                <div class="quality-icon">
+                    <i class="fas fa-compress-alt"></i>
+                </div>
+                <div class="quality-info">
+                    <div class="quality-name">Среднее качество</div>
+                    <div class="quality-desc">До 800px, 50% качества</div>
+                </div>
+            </div>
+            <div class="quality-option" data-quality="low">
+                <div class="quality-icon">
+                    <i class="fas fa-file-export"></i>
+                </div>
+                <div class="quality-info">
+                    <div class="quality-name">Экономное</div>
+                    <div class="quality-desc">До 600px, 30% качества</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="attachments-container">
+        <div class="attachment-option">
+            <div class="attachment-icon">
+                <i class="fas fa-camera"></i>
+            </div>
+            <span>Добавить фото</span>
+            <input type="file" accept="image/*" class="attachment-input" id="photoInput" multiple>
+        </div>
+    </div>
+    
+    <div class="form-hint">
+        <i class="fas fa-info-circle"></i>
+        Фото автоматически сжимаются. iPhone HEIC конвертируются в JPEG.
+    </div>
+</div>
 
             <!-- Предпросмотр новых фото -->
             <div class="form-section" id="editPhotoPreviewSection" style="display: none;">
@@ -1626,27 +1806,41 @@ class iPhoneTraderApp {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 
-                // Проверяем размер файла (макс 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    this.showToast('Ошибка', `Файл ${file.name} слишком большой (макс 5MB)`, 'error');
-                    continue;
+                // Проверяем размер файла (макс 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    this.showToast('Предупреждение', `Файл ${file.name} слишком большой (${Math.round(file.size / 1024 / 1024)}MB). Сжимаем...`, 'warning');
                 }
                 
                 // Проверяем тип файла
                 if (!file.type.startsWith('image/')) {
                     this.showToast('Ошибка', `Файл ${file.name} не является изображением`, 'error');
+                    loadedCount++;
                     continue;
                 }
                 
                 const reader = new FileReader();
                 
                 reader.onload = (e) => {
-                    photos.push(e.target.result);
-                    loadedCount++;
-                    
-                    if (loadedCount === files.length) {
-                        resolve(photos);
-                    }
+                    this.compressImage(e.target.result, file.type)
+                        .then(compressedImage => {
+                            photos.push(compressedImage);
+                            loadedCount++;
+                            
+                            if (loadedCount === files.length) {
+                                this.showToast('Успех', `Загружено ${photos.length} фото (сжаты)`, 'success');
+                                resolve(photos);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Ошибка сжатия:', error);
+                            // Если сжатие не удалось, используем оригинал
+                            photos.push(e.target.result);
+                            loadedCount++;
+                            
+                            if (loadedCount === files.length) {
+                                resolve(photos);
+                            }
+                        });
                 };
                 
                 reader.onerror = () => {
@@ -1663,6 +1857,67 @@ class iPhoneTraderApp {
             if (files.length > 0 && photos.length === 0 && loadedCount === files.length) {
                 resolve([]);
             }
+        });
+    }
+    
+    // Новый метод для сжатия изображений
+    compressImage(dataUrl, mimeType, maxWidth = 1200, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Создаем canvas для сжатия
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Рассчитываем новые размеры
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                
+                // Устанавливаем размеры canvas
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Рисуем сжатое изображение
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Конвертируем HEIC/HEIF в JPEG если нужно
+                let outputMimeType = mimeType;
+                if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+                    outputMimeType = 'image/jpeg';
+                    this.showToast('Инфо', 'HEIC фото конвертировано в JPEG', 'info');
+                }
+                
+                // Получаем сжатое изображение
+                try {
+                    const compressedDataUrl = canvas.toDataURL(outputMimeType, quality);
+                    
+                    // Проверяем размер после сжатия
+                    const base64Length = compressedDataUrl.length - (compressedDataUrl.indexOf(',') + 1);
+                    const sizeInBytes = Math.ceil(base64Length * 3 / 4);
+                    const sizeInMB = sizeInBytes / 1024 / 1024;
+                    
+                    console.log(`Сжато: ${Math.round(sizeInMB * 100) / 100}MB`);
+                    
+                    if (sizeInMB > 2) {
+                        // Если все еще слишком большой, сжимаем сильнее
+                        this.compressImage(compressedDataUrl, outputMimeType, maxWidth * 0.8, quality * 0.7)
+                            .then(moreCompressed => resolve(moreCompressed))
+                            .catch(err => reject(err));
+                    } else {
+                        resolve(compressedDataUrl);
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            img.onerror = reject;
+            img.src = dataUrl;
         });
     }
     
@@ -1818,6 +2073,25 @@ class iPhoneTraderApp {
             });
         });
         
+        // Настройки качества фото
+    document.querySelectorAll('.quality-option').forEach(option => {
+        option.addEventListener('click', () => {
+            // Убираем активный класс у всех
+            document.querySelectorAll('.quality-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            
+            // Добавляем активный класс выбранному
+            option.classList.add('active');
+            
+            // Сохраняем настройку
+            this.currentCompression = option.dataset.quality;
+            
+            this.showToast('Настройки', `Качество фото: ${this.getCompressionName(this.currentCompression)}`, 'info');
+        });
+    });
+    
+
         // Кнопка добавления товара
         document.getElementById('addProductBtn')?.addEventListener('click', () => {
             this.switchPage('addProduct');
@@ -2141,6 +2415,14 @@ class iPhoneTraderApp {
         
         // Авторизация
         this.initAuthEventListeners();
+    }
+    getCompressionName(level) {
+        const names = {
+            high: 'Высокое',
+            medium: 'Среднее',
+            low: 'Экономное'
+        };
+        return names[level] || 'Высокое';
     }
     
     // Инициализация обработчиков событий авторизации
