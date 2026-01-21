@@ -2610,4 +2610,56 @@ body {
     background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
     width: 0%;
     transition: width 0.3s ease;
+}/* Индикатор загрузки для iOS */
+.upload-progress-container {
+    margin: 15px 0;
+}
+
+.upload-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+    position: relative;
+}
+
+.upload-progress-fill::after {
+    content: attr(data-progress);
+    position: absolute;
+    right: 5px;
+    top: -20px;
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.upload-progress-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* iOS специфичные стили */
+.ios-warning {
+    background: rgba(255, 149, 0, 0.1);
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 13px;
+    color: var(--warning);
+}
+
+.ios-warning i {
+    margin-right: 5px;
 }

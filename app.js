@@ -170,6 +170,12 @@ class iPhoneTraderApp {
     // Инициализация приложения
     async init() {
         console.log('Приложение инициализируется...');
+
+        // Проверка iOS
+    if (this.isIOS()) {
+        console.log('Обнаружено iOS устройство');
+        this.showIOSWarning();
+    }
         
         // Проверяем, есть ли сохраненный пользователь
         const savedUser = localStorage.getItem('iphoneTraderUser');
@@ -194,6 +200,24 @@ class iPhoneTraderApp {
     
     // ========== МЕТОДЫ ЗАГРУЗКИ ==========
     
+    showIOSWarning() {
+        // Можно добавить баннер или уведомление
+        const warning = document.createElement('div');
+        warning.className = 'ios-warning';
+        warning.innerHTML = `
+            <i class="fas fa-mobile-alt"></i>
+            <strong>iOS устройство:</strong> Обработка фото может занять несколько секунд
+        `;
+        
+        const addProductPage = document.getElementById('addProductPage');
+        if (addProductPage) {
+            const form = addProductPage.querySelector('.add-product-form');
+            if (form) {
+                form.insertBefore(warning, form.firstChild);
+            }
+        }
+    }
+
     // Показать индикатор загрузки
     showLoading(type = 'global', text = 'Загрузка...') {
         this.isLoading = true;
@@ -1102,6 +1126,12 @@ class iPhoneTraderApp {
                 </div>
             </div>
         </div>
+        <div class="upload-progress-container" style="display: none; margin-top: 10px;">
+    <div class="upload-progress-bar">
+        <div class="upload-progress-fill" id="uploadProgress"></div>
+    </div>
+    <div class="upload-progress-text" id="uploadProgressText">Обработка фото...</div>
+</div>
     </div>
     
     <div class="attachments-container">
@@ -1793,7 +1823,7 @@ class iPhoneTraderApp {
     // Обработка загрузки фото
     handlePhotoUpload(input) {
         return new Promise((resolve) => {
-            const files = input.files;
+            const files = Array.from(input.files);
             const photos = [];
             
             if (files.length === 0) {
@@ -1801,65 +1831,168 @@ class iPhoneTraderApp {
                 return;
             }
             
-            let loadedCount = 0;
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                
-                // Проверяем размер файла (макс 10MB)
-                if (file.size > 10 * 1024 * 1024) {
-                    this.showToast('Предупреждение', `Файл ${file.name} слишком большой (${Math.round(file.size / 1024 / 1024)}MB). Сжимаем...`, 'warning');
-                }
-                
-                // Проверяем тип файла
-                if (!file.type.startsWith('image/')) {
-                    this.showToast('Ошибка', `Файл ${file.name} не является изображением`, 'error');
-                    loadedCount++;
-                    continue;
-                }
-                
-                const reader = new FileReader();
-                
-                reader.onload = (e) => {
-                    this.compressImage(e.target.result, file.type)
-                        .then(compressedImage => {
-                            photos.push(compressedImage);
-                            loadedCount++;
-                            
-                            if (loadedCount === files.length) {
-                                this.showToast('Успех', `Загружено ${photos.length} фото (сжаты)`, 'success');
-                                resolve(photos);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Ошибка сжатия:', error);
-                            // Если сжатие не удалось, используем оригинал
-                            photos.push(e.target.result);
-                            loadedCount++;
-                            
-                            if (loadedCount === files.length) {
-                                resolve(photos);
-                            }
-                        });
-                };
-                
-                reader.onerror = () => {
-                    loadedCount++;
-                    if (loadedCount === files.length) {
-                        resolve(photos);
-                    }
-                };
-                
-                reader.readAsDataURL(file);
+            // Для iOS показываем уведомление о начале обработки
+            if (this.isIOS()) {
+                this.showToast('Инфо', 'Обработка фото...', 'info');
             }
             
-            // Если все файлы были пропущены из-за ошибок
-            if (files.length > 0 && photos.length === 0 && loadedCount === files.length) {
-                resolve([]);
+            let processedCount = 0;
+            const totalFiles = files.length;
+            
+            const processFile = async (file, index) => {
+                try {
+                    // Для iOS используем упрощенную обработку
+                    if (this.isIOS()) {
+                        const compressedPhoto = await this.compressImageForIOS(file);
+                        photos[index] = compressedPhoto;
+                    } else {
+                        // Для других устройств обычное сжатие
+                        const compressedPhoto = await this.compressImageFile(file);
+                        photos[index] = compressedPhoto;
+                    }
+                } catch (error) {
+                    console.error('Ошибка обработки файла:', error, file.name);
+                    // Если сжатие не удалось, используем оригинал через FileReader
+                    const originalPhoto = await this.readFileAsDataURL(file);
+                    photos[index] = originalPhoto;
+                } finally {
+                    processedCount++;
+                    
+                    // Обновляем прогресс
+                    this.updateUploadProgress(processedCount, totalFiles);
+                    
+                    // Когда все файлы обработаны
+                    if (processedCount === totalFiles) {
+                        // Фильтруем undefined (если какие-то файлы не удалось обработать)
+                        const result = photos.filter(photo => photo !== undefined);
+                        
+                        if (result.length > 0) {
+                            this.showToast('Успех', `Загружено ${result.length} из ${totalFiles} фото`, 'success');
+                        }
+                        
+                        resolve(result);
+                    }
+                }
+            };
+            
+            // Обрабатываем файлы последовательно для iOS, параллельно для других
+            if (this.isIOS()) {
+                // Для iOS последовательно чтобы не перегружать
+                const processSequentially = async () => {
+                    for (let i = 0; i < files.length; i++) {
+                        await processFile(files[i], i);
+                    }
+                };
+                processSequentially();
+            } else {
+                // Для других устройств параллельно
+                files.forEach((file, index) => {
+                    processFile(file, index);
+                });
             }
         });
     }
     
+// Новый метод для чтения файла как DataURL
+readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Специальный метод сжатия для iOS
+async compressImageForIOS(file) {
+    // Для iOS используем библиотеку или простой метод
+    if (typeof imageCompression !== 'undefined') {
+        return this.compressWithLibrary(file);
+    } else {
+        return this.simpleCompressForIOS(file);
+    }
+}
+
+// Простое сжатие для iOS (без Canvas если проблемы)
+simpleCompressForIOS(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Для iOS ограничиваем максимальный размер
+                const maxSize = 1024; // Максимум 1024px
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > maxSize || height > maxSize) {
+                    if (width > height) {
+                        height = Math.round((height * maxSize) / width);
+                        width = maxSize;
+                    } else {
+                        width = Math.round((width * maxSize) / height);
+                        height = maxSize;
+                    }
+                }
+                
+                // Создаем canvas только если нужно изменить размер
+                if (width !== img.width || height !== img.height) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Для iOS используем JPEG с качеством 0.8
+                    try {
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        resolve(compressedDataUrl);
+                    } catch (error) {
+                        // Если canvas не работает, возвращаем оригинал
+                        resolve(e.target.result);
+                    }
+                } else {
+                    // Если размер и так маленький, возвращаем оригинал
+                    resolve(e.target.result);
+                }
+            };
+            
+            img.onerror = () => {
+                // Если не удалось загрузить изображение, возвращаем оригинал
+                resolve(e.target.result);
+            };
+            
+            img.src = e.target.result;
+        };
+        
+        reader.onerror = () => {
+            // В случае ошибки чтения, пробуем еще раз с простым чтением
+            const fallbackReader = new FileReader();
+            fallbackReader.onload = (e2) => resolve(e2.target.result);
+            fallbackReader.readAsDataURL(file);
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// Определение iOS устройства
+isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+// Обновление прогресса загрузки
+updateUploadProgress(current, total) {
+    const progressElement = document.getElementById('uploadProgress');
+    if (progressElement) {
+        const percent = Math.round((current / total) * 100);
+        progressElement.style.width = `${percent}%`;
+        progressElement.textContent = `${current}/${total}`;
+    }
+}
     // Новый метод для сжатия изображений
     compressImage(dataUrl, mimeType, maxWidth = 1200, quality = 0.7) {
         return new Promise((resolve, reject) => {
