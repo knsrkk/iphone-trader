@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPhone Trader — Учет перепродажи</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Шапка приложения -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="app-logo">
+                        <i class="fas fa-mobile-alt"></i>
+                        <h1>iPhone Trader</h1>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button class="header-btn search-btn" id="searchBtn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="header-btn parts-btn" id="partsBtn">
+                        <i class="fas fa-wrench"></i>
+                    </button>
+                    <button class="header-btn profile-btn" id="profileBtn">
+                        <i class="fas fa-user"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Поиск -->
+            <div class="search-container" id="searchContainer">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Поиск по названию...">
+                    <button class="clear-search" id="clearSearchBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Основное содержимое -->
+        <main class="app-main">
+            <!-- Главная страница -->
+            <section class="page active" id="homePage">
+                <div class="welcome-section">
+                    <div class="welcome-card">
+                        <h2>Добро пожаловать!</h2>
+                        <p>Управляйте вашим бизнесом по перепродаже iPhone</p>
+                        <div class="quick-stats">
+                            <div class="quick-stat">
+                                <span class="stat-icon">💰</span>
+                                <div>
+                                    <div class="stat-label">Прибыль</div>
+                                    <div class="stat-value" id="quickProfit">0 ₽</div>
+                                </div>
+                            </div>
+                            <div class="quick-stat">
+                                <span class="stat-icon">📦</span>
+                                <div>
+                                    <div class="stat-label">В наличии</div>
+                                    <div class="stat-value" id="quickInStock">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="stats-section">
+                    <h3 class="section-title">Общая статистика</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-card-icon income">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-card-label">Прибыль</div>
+                                <div class="stat-card-value" id="statProfit">0 ₽</div>
+                                <div class="stat-card-change positive">
+                                    <i class="fas fa-arrow-up"></i> 12%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon sales">
+                                <i class="fas fa-chart-bar"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-card-label">Оборот</div>
+                                <div class="stat-card-value" id="statTurnover">0 ₽</div>
+                                <div class="stat-card-change positive">
+                                    <i class="fas fa-arrow-up"></i> 8%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stock">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-card-label">В наличии</div>
+                                <div class="stat-card-value" id="statInStock">0</div>
+                                <div class="stat-card-change negative">
+                                    <i class="fas fa-arrow-down"></i> 3%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon sold">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-card-label">Продано</div>
+                                <div class="stat-card-value" id="statSold">0</div>
+                                <div class="stat-card-change positive">
+                                    <i class="fas fa-arrow-up"></i> 15%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Последние товары -->
+                <div class="recent-section">
+                    <div class="section-header">
+                        <h3 class="section-title">Последние товары</h3>
+                        <a href="#" class="view-all" data-page="warehouse">Все товары</a>
+                    </div>
+                    <div class="products-grid" id="recentProducts">
+                        <!-- Товары будут загружены через JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Склад -->
+            <section class="page" id="warehousePage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromWarehouse">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Склад</h2>
+                </div>
+
+                <!-- Категории -->
+                <div class="categories-section">
+                    <h3 class="section-title">Категории</h3>
+                    <div class="categories-grid">
+                        <div class="category-card" data-category="phones">
+                            <div class="category-icon">
+                                <i class="fas fa-mobile-alt"></i>
+                            </div>
+                            <div class="category-info">
+                                <div class="category-name">Телефоны</div>
+                                <div class="category-count" id="categoryPhones">0</div>
+                            </div>
+                        </div>
+                        <div class="category-card" data-category="accessories">
+                            <div class="category-icon">
+                                <i class="fas fa-headphones"></i>
+                            </div>
+                            <div class="category-info">
+                                <div class="category-name">Аксессуары</div>
+                                <div class="category-count" id="categoryAccessories">0</div>
+                            </div>
+                        </div>
+                        <div class="category-card" data-category="parts">
+                            <div class="category-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <div class="category-info">
+                                <div class="category-name">Запчасти</div>
+                                <div class="category-count" id="categoryParts">0</div>
+                            </div>
+                        </div>
+                        <div class="category-card" data-category="sold">
+                            <div class="category-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="category-info">
+                                <div class="category-name">Продано</div>
+                                <div class="category-count" id="categorySold">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Фильтры -->
+                <div class="filters-container" id="filtersContainer">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">Все</button>
+                        <button class="filter-tab" data-filter="phones">Телефоны</button>
+                        <button class="filter-tab" data-filter="accessories">Аксессуары</button>
+                        <button class="filter-tab" data-filter="parts">Запчасти</button>
+                        <button class="filter-tab" data-filter="sold">Продано</button>
+                    </div>
+                    
+                    <!-- Дополнительный фильтр для телефонов -->
+                    <div class="filter-tabs" id="phoneStatusFilter" style="display: none;">
+                        <button class="filter-tab" data-phone-status="all">Все телефоны</button>
+                        <button class="filter-tab" data-phone-status="new">Новые</button>
+                        <button class="filter-tab" data-phone-status="in-progress">В процессе</button>
+                        <button class="filter-tab" data-phone-status="ready">Готовые</button>
+                        <button class="filter-tab" data-phone-status="for-sale">На продаже</button>
+                    </div>
+                    
+                    <div class="filter-sort">
+                        <select class="sort-select" id="sortSelect">
+                            <option value="newest">Сначала новые</option>
+                            <option value="oldest">Сначала старые</option>
+                            <option value="price-high">Цена по убыванию</option>
+                            <option value="price-low">Цена по возрастанию</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Список товаров -->
+                <div class="warehouse-products" id="warehouseProducts">
+                    <!-- Товары будут загружены через JavaScript -->
+                </div>
+            </section>
+
+            <!-- Добавление товара -->
+            <section class="page" id="addProductPage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromAdd">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Добавить товар</h2>
+                </div>
+
+                <form class="add-product-form" id="addProductForm">
+                    <!-- Основная информация -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Основная информация</h3>
+                        
+                        <div class="form-group">
+                            <label for="productName" class="form-label">
+                                <i class="fas fa-tag"></i> Название товара
+                            </label>
+                            <input type="text" id="productName" class="form-input" placeholder="iPhone 14 Pro 256GB" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="purchasePrice" class="form-label">
+                                <i class="fas fa-shopping-cart"></i> Цена покупки
+                            </label>
+                            <div class="price-input">
+                                <input type="number" id="purchasePrice" class="form-input" placeholder="0" required>
+                                <span class="currency">₽</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="investment" class="form-label">
+                                <i class="fas fa-ruble-sign"></i> Дополнительные вложения (ремонт и т.д.)
+                            </label>
+                            <div class="price-input">
+                                <input type="number" id="investment" class="form-input" placeholder="0">
+                                <span class="currency">₽</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="productCategory" class="form-label">
+                                <i class="fas fa-folder"></i> Категория
+                            </label>
+                            <div class="category-select">
+                                <select id="productCategory" class="form-select" required>
+                                    <option value="">Выберите категорию</option>
+                                    <option value="phones">📱 Телефоны</option>
+                                    <option value="accessories">🎧 Аксессуары</option>
+                                    <option value="parts">🔧 Запчасти</option>
+                                </select>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+
+                        <!-- Дополнительный статус для телефонов -->
+                        <div class="form-group" id="phoneStatusGroup" style="display: none;">
+                            <label for="phoneStatus" class="form-label">
+                                <i class="fas fa-phone"></i> Статус телефона
+                            </label>
+                            <div class="category-select">
+                                <select id="phoneStatus" class="form-select">
+                                    <option value="new">Новый</option>
+                                    <option value="in-progress">В процессе</option>
+                                    <option value="ready">Готовый</option>
+                                    <option value="for-sale">На продаже</option>
+                                </select>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="requiredParts" class="form-label">
+                                <i class="fas fa-wrench"></i> Нужные запчасти (не обязательно)
+                            </label>
+                            <textarea id="requiredParts" class="form-textarea" rows="2" placeholder="Например: новый дисплей, батарея..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Фото -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Фотографии</h3>
+                        <div class="attachments-container">
+                            <div class="attachment-option">
+                                <div class="attachment-icon">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+                                <span>Добавить фото</span>
+                                <input type="file" accept="image/*" class="attachment-input" id="photoInput" multiple>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Предпросмотр фото -->
+                    <div class="form-section" id="photoPreviewSection" style="display: none;">
+                        <h3 class="form-section-title">Предпросмотр фото</h3>
+                        <div class="photo-preview" id="photoPreview"></div>
+                    </div>
+
+                    <!-- Описание -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Описание</h3>
+                        <div class="form-group">
+                            <label for="productDescription" class="form-label">
+                                <i class="fas fa-align-left"></i> Описание товара
+                            </label>
+                            <textarea id="productDescription" class="form-textarea" rows="4" placeholder="Опишите состояние, комплектацию, особенности..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки формы -->
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelAddBtn">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="addProductSubmit">
+                            <span class="btn-text">
+                                <i class="fas fa-plus"></i> Добавить товар
+                            </span>
+                            <div class="loader-small"></div>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Редактирование товара -->
+            <section class="page" id="editProductPage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromEdit">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Редактировать товар</h2>
+                    <div class="header-actions">
+                        <button class="delete-btn" id="deleteProductBtn">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <form class="edit-product-form" id="editProductForm">
+                    <!-- Форма будет заполнена динамически -->
+                </form>
+            </section>
+
+            <!-- Детали товара -->
+            <section class="page" id="productDetailPage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromDetail">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Детали товара</h2>
+                    <div class="header-actions">
+                        <button class="edit-btn" id="editDetailBtn">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="product-detail-container" id="productDetailContainer">
+                    <!-- Детали будут загружены динамически -->
+                </div>
+            </section>
+
+            <!-- Страница запчастей -->
+            <section class="page" id="partsPage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromParts">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Нужные запчасти</h2>
+                </div>
+
+                <div class="parts-container">
+                    <div class="form-section">
+                        <h3 class="form-section-title">Добавить запчасть</h3>
+                        <div class="form-group">
+                            <div class="parts-input-wrapper">
+                                <input type="text" id="newPart" class="form-input" placeholder="Например: Дисплей iPhone 13">
+                                <button type="button" class="btn btn-primary" id="addPartBtn">
+                                    <span class="btn-text">
+                                        <i class="fas fa-plus"></i> Добавить
+                                    </span>
+                                    <div class="loader-small"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="form-section-title">Список запчастей</h3>
+                        <div class="parts-list" id="partsList">
+                            <!-- Список будет заполнен динамически -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Нижняя навигация (три кнопки) -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item active" data-page="home">
+                <div class="nav-icon">
+                    <i class="fas fa-home"></i>
+                </div>
+                <div class="nav-label">Главная</div>
+            </a>
+            
+            <div class="nav-center">
+                <button class="add-btn" id="addProductBtn">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            
+            <a href="#" class="nav-item" data-page="warehouse">
+                <div class="nav-icon">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div class="nav-label">Склад</div>
+            </a>
+        </nav>
+
+        <!-- Модальное окно профиля -->
+        <div class="profile-modal" id="profileModal">
+            <div class="profile-header" id="profileHeader">
+                <!-- Заполнится динамически -->
+            </div>
+            <div class="profile-menu">
+                <button class="profile-item" id="profileSettings">
+                    <i class="fas fa-cog"></i>
+                    <span>Настройки</span>
+                </button>
+                <button class="profile-item" id="profileStatistics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Моя статистика</span>
+                </button>
+                <button class="profile-item" id="profileBackup">
+                    <i class="fas fa-download"></i>
+                    <span>Резервная копия</span>
+                </button>
+                <div class="profile-divider"></div>
+                <button class="profile-item" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Выйти</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Модальные окна -->
+        <div class="modal-overlay" id="modalOverlay"></div>
+
+        <!-- Модальное окно авторизации -->
+        <div class="modal auth-modal" id="authModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Вход в аккаунт</h3>
+                    <button class="modal-close" id="closeAuthModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login">Вход</button>
+                        <button class="auth-tab" data-tab="register">Регистрация</button>
+                    </div>
+                    
+                    <form class="auth-form active" id="loginForm" data-form="login">
+                        <div class="form-group">
+                            <label for="loginEmail" class="form-label">Email</label>
+                            <input type="email" id="loginEmail" class="form-input" placeholder="email@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword" class="form-label">Пароль</label>
+                            <input type="password" id="loginPassword" class="form-input" placeholder="Ваш пароль" required>
+                            <a href="#" class="forgot-password" id="forgotPassword">Забыли пароль?</a>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="loginSubmit" style="width: 100%;">
+                                <span class="btn-text">
+                                    <i class="fas fa-sign-in-alt"></i> Войти
+                                </span>
+                                <div class="loader-small"></div>
+                            </button>
+                        </div>
+                        <div class="form-footer">
+                            <p>Нет аккаунта? <a href="#" class="switch-to-register">Зарегистрируйтесь</a></p>
+                        </div>
+                    </form>
+                    
+                    <form class="auth-form" id="registerForm" data-form="register">
+                        <div class="form-group">
+                            <label for="registerName" class="form-label">Имя</label>
+                            <input type="text" id="registerName" class="form-input" placeholder="Ваше имя" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail" class="form-label">Email</label>
+                            <input type="email" id="registerEmail" class="form-input" placeholder="email@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword" class="form-label">Пароль</label>
+                            <input type="password" id="registerPassword" class="form-input" placeholder="Не менее 6 символов" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerConfirmPassword" class="form-label">Подтвердите пароль</label>
+                            <input type="password" id="registerConfirmPassword" class="form-input" placeholder="Повторите пароль" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="registerSubmit" style="width: 100%;">
+                                <span class="btn-text">
+                                    <i class="fas fa-user-plus"></i> Зарегистрироваться
+                                </span>
+                                <div class="loader-small"></div>
+                            </button>
+                        </div>
+                        <div class="form-footer">
+                            <p>Уже есть аккаунт? <a href="#" class="switch-to-login">Войти</a></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно продажи -->
+        <div class="modal" id="sellModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Продать товар</h3>
+                    <button class="modal-close" id="closeSellModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="sellingPrice" class="form-label">Цена продажи</label>
+                        <div class="price-input">
+                            <input type="number" id="sellingPrice" class="form-input" placeholder="0" required>
+                            <span class="currency">₽</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="saleNotes" class="form-label">Примечания к продаже</label>
+                        <textarea id="saleNotes" class="form-textarea" rows="3" placeholder="Дополнительная информация..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelSellBtn">Отмена</button>
+                    <button class="btn btn-success" id="confirmSellBtn">
+                        <span class="btn-text">Подтвердить продажу</span>
+                        <div class="loader-small"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно удаления -->
+        <div class="modal" id="deleteModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Удалить товар</h3>
+                    <button class="modal-close" id="closeDeleteModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.</p>
+                    <div class="delete-preview" id="deletePreview"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelDeleteBtn">Отмена</button>
+                    <button class="btn btn-danger" id="confirmDeleteBtn">
+                        <span class="btn-text">Удалить</span>
+                        <div class="loader-small"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Уведомления -->
+        <div class="toast-container" id="toastContainer"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script src="firebase-config.js"></script>
+<script src="firebase-service.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
