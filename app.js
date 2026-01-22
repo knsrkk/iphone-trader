@@ -1177,6 +1177,11 @@ class iPhoneTraderApp {
     this.editPhotos = [...(product.photos || [])];
     this.newEditPhotos = [];
     
+    // Показываем превью новых фото если они есть
+    if (this.newEditPhotos && this.newEditPhotos.length > 0) {
+        this.showEditPhotoPreview();
+    }
+    
     // Добавляем обработчики событий
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -1184,6 +1189,9 @@ class iPhoneTraderApp {
     });
     
     document.getElementById('cancelEditBtn').addEventListener('click', () => {
+        // Очищаем массивы фото при отмене редактирования
+        this.editPhotos = [];
+        this.newEditPhotos = [];
         this.switchPage('productDetail');
     });
     
@@ -1204,7 +1212,17 @@ class iPhoneTraderApp {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const index = parseInt(btn.dataset.index);
+            
+            // Проверяем валидность индекса
+            if (isNaN(index) || !this.editPhotos || index < 0 || index >= this.editPhotos.length) {
+                console.error('Неверный индекс фото для удаления:', index);
+                return;
+            }
+            
+            // Удаляем фото из массива
             this.editPhotos.splice(index, 1);
+            
+            // Обновляем форму с обновленными фото
             this.renderEditForm({...product, photos: this.editPhotos});
         });
     });
@@ -1219,6 +1237,11 @@ class iPhoneTraderApp {
 // Новый метод для обработки загрузки фото при редактировании
 async handleEditPhotoUpload(input) {
     try {
+        // Проверяем наличие файлов
+        if (!input || !input.files || input.files.length === 0) {
+            return;
+        }
+        
         // Показываем индикатор загрузки
         const progressContainer = document.getElementById('editUploadProgressContainer');
         const progressBar = document.getElementById('editUploadProgress');
@@ -1226,15 +1249,29 @@ async handleEditPhotoUpload(input) {
         
         if (progressContainer) {
             progressContainer.style.display = 'block';
+        }
+        if (progressBar) {
             progressBar.style.width = '0%';
+        }
+        if (progressText) {
+            progressText.textContent = 'Обработка фото...';
+        }
+        
+        // Инициализируем массив если не существует
+        if (!this.newEditPhotos) {
+            this.newEditPhotos = [];
         }
         
         // Загружаем фото
         const newPhotos = await this.handlePhotoUpload(input);
         
-        // Инициализируем массив если не существует
-        if (!this.newEditPhotos) {
-            this.newEditPhotos = [];
+        // Проверяем результат
+        if (!newPhotos || newPhotos.length === 0) {
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+            this.showToast('Предупреждение', 'Не удалось обработать фото', 'warning');
+            return;
         }
         
         // Добавляем к новым фото для этого редактирования
@@ -1256,13 +1293,21 @@ async handleEditPhotoUpload(input) {
             }, 2000);
         }
         
+        // Очищаем input чтобы можно было загрузить те же файлы снова
+        input.value = '';
+        
     } catch (error) {
         console.error('Ошибка загрузки фото при редактировании:', error);
-        this.showToast('Ошибка', 'Не удалось загрузить фото', 'error');
+        this.showToast('Ошибка', `Не удалось загрузить фото: ${error.message || 'Неизвестная ошибка'}`, 'error');
         
         const progressContainer = document.getElementById('editUploadProgressContainer');
         if (progressContainer) {
             progressContainer.style.display = 'none';
+        }
+        
+        // Инициализируем массив если произошла ошибка
+        if (!this.newEditPhotos) {
+            this.newEditPhotos = [];
         }
     }
 }
@@ -1398,8 +1443,12 @@ async saveProductChanges(productId) {
     if (!this.editPhotos) this.editPhotos = [];
     if (!this.newEditPhotos) this.newEditPhotos = [];
     
+    // Фильтруем валидные фото (убираем null, undefined, пустые строки)
+    const validEditPhotos = this.editPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
+    const validNewPhotos = this.newEditPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
+    
     // Собираем все фото: старые (оставшиеся) + новые
-    const allPhotos = [...this.editPhotos, ...this.newEditPhotos];
+    const allPhotos = [...validEditPhotos, ...validNewPhotos];
     
     const updates = {
         name: document.getElementById('editProductName').value.trim(),
@@ -2040,11 +2089,21 @@ isIOS() {
 
 // Обновление прогресса загрузки
 updateUploadProgress(current, total) {
+    // Обновляем прогресс для обычной загрузки
     const progressElement = document.getElementById('uploadProgress');
     if (progressElement) {
         const percent = Math.round((current / total) * 100);
         progressElement.style.width = `${percent}%`;
         progressElement.textContent = `${current}/${total}`;
+    }
+    
+    // Обновляем прогресс для редактирования
+    const editProgressBar = document.getElementById('editUploadProgress');
+    const editProgressText = document.getElementById('editUploadProgressText');
+    if (editProgressBar && editProgressText) {
+        const percent = Math.round((current / total) * 100);
+        editProgressBar.style.width = `${percent}%`;
+        editProgressText.textContent = `Обработка фото: ${current} из ${total}`;
     }
 }
     // Новый метод для сжатия изображений
@@ -2147,16 +2206,17 @@ updateUploadProgress(current, total) {
         
         if (!previewSection || !previewContainer) return;
         
-        if (this.newPhotos.length === 0) {
+        // Используем правильную переменную для новых фото при редактировании
+        if (!this.newEditPhotos || this.newEditPhotos.length === 0) {
             previewSection.style.display = 'none';
             return;
         }
         
         previewSection.style.display = 'block';
-        previewContainer.innerHTML = this.newPhotos.map((photo, index) => `
+        previewContainer.innerHTML = this.newEditPhotos.map((photo, index) => `
             <div class="photo-item">
                 <img src="${photo}" alt="Новое фото ${index + 1}">
-                <button class="remove-photo" data-new-index="${index}">
+                <button type="button" class="remove-photo" data-new-index="${index}">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -2165,9 +2225,12 @@ updateUploadProgress(current, total) {
         // Добавляем обработчики для удаления новых фото
         previewContainer.querySelectorAll('.remove-photo').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = parseInt(e.target.closest('.remove-photo').dataset.newIndex);
-                this.newPhotos.splice(index, 1);
-                this.showEditPhotoPreview();
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.newIndex);
+                if (this.newEditPhotos && index >= 0 && index < this.newEditPhotos.length) {
+                    this.newEditPhotos.splice(index, 1);
+                    this.showEditPhotoPreview();
+                }
             });
         });
     }
