@@ -6,12 +6,16 @@
     <title>iPhone Trader — Учет перепродажи</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="logo.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="data:,">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-title" content="iPhone Trader">
+    <link rel="icon" href="logo.png" type="image/png">
 </head>
 <body>
     <div class="app-container">
@@ -286,6 +290,21 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="purchaseSource" class="form-label">
+                                <i class="fas fa-map-marker-alt"></i> Место покупки
+                            </label>
+                            <div class="category-select">
+                                <select id="purchaseSource" class="form-select" required>
+                                    <option value="avito_lenta">Авито лента</option>
+                                    <option value="avito_skupka">Авито скупка</option>
+                                    <option value="vk">ВК</option>
+                                    <option value="tg">ТГ</option>
+                                </select>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+
                         <!-- Дополнительный статус для телефонов -->
                         <div class="form-group" id="phoneStatusGroup" style="display: none;">
                             <label for="phoneStatus" class="form-label">
@@ -428,6 +447,20 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Страница статистики -->
+            <section class="page" id="statisticsPage">
+                <div class="page-header">
+                    <div class="back-btn" id="backFromStatistics">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <h2>Моя статистика</h2>
+                </div>
+
+                <div class="statistics-container" id="statisticsContainer">
+                    <!-- Статистика будет загружена динамически -->
+                </div>
+            </section>
         </main>
 
         <!-- Нижняя навигация (три кнопки) -->
@@ -568,6 +601,17 @@
                         <div class="price-input">
                             <input type="number" id="sellingPrice" class="form-input" placeholder="0" required>
                             <span class="currency">₽</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="saleSource" class="form-label">Место продажи</label>
+                        <div class="category-select">
+                            <select id="saleSource" class="form-select" required>
+                                <option value="avito">Авито</option>
+                                <option value="vk">ВК</option>
+                                <option value="tg">ТГ</option>
+                            </select>
+                            <i class="fas fa-chevron-down"></i>
                         </div>
                     </div>
                     <div class="form-group">

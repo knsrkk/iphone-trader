@@ -1312,6 +1312,382 @@ async handleEditPhotoUpload(input) {
     }
 }
     
+    // Отображение страницы статистики
+    renderStatistics() {
+        if (!this.checkAuth()) {
+            this.switchPage('home');
+            return;
+        }
+
+        const container = document.getElementById('statisticsContainer');
+        if (!container) return;
+
+        // Рассчитываем статистику
+        const stats = this.calculateStatistics();
+        
+        container.innerHTML = `
+            <!-- Общая статистика -->
+            <div class="stats-overview">
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon profit">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Общая прибыль</div>
+                        <div class="stat-overview-value">${this.formatCurrency(stats.totalProfit)}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon sales">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Оборот</div>
+                        <div class="stat-overview-value">${this.formatCurrency(stats.totalTurnover)}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon sold">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Продано товаров</div>
+                        <div class="stat-overview-value">${stats.soldCount}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon stock">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">В наличии</div>
+                        <div class="stat-overview-value">${stats.inStockCount}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Диаграммы -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h3 class="chart-title">Покупки iPhone по неделям (текущий месяц)</h3>
+                    <canvas id="salesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Распределение по месту покупки</h3>
+                    <canvas id="profitChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Распределение по месту продажи</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Таблица продаж -->
+            <div class="table-section">
+                <h3 class="section-title">Последние продажи</h3>
+                <div class="stats-table-container">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th>Категория</th>
+                                <th>Цена покупки</th>
+                                <th>Цена продажи</th>
+                                <th>Прибыль</th>
+                                <th>Дата продажи</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesTableBody">
+                            <!-- Заполнится динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // Создаем диаграммы
+        this.createCharts(stats);
+        
+        // Заполняем таблицу
+        this.fillSalesTable(stats.recentSales);
+    }
+
+    // Расчет статистики
+    calculateStatistics() {
+        const soldProducts = this.products.filter(p => p.status === 'sold');
+        const inStockProducts = this.products.filter(p => p.status === 'in-stock');
+        const phoneProducts = this.products.filter(p => p.category === 'phones');
+        
+        // Общая прибыль
+        const totalProfit = soldProducts.reduce((sum, p) => {
+            const purchase = p.purchasePrice || 0;
+            const investment = p.investment || 0;
+            const selling = p.sellingPrice || 0;
+            return sum + (selling - purchase - investment);
+        }, 0);
+        
+        // Общий оборот
+        const totalTurnover = soldProducts.reduce((sum, p) => sum + (p.sellingPrice || 0), 0);
+        
+        // Статистика покупок iPhone по неделям текущего месяца
+        const weeklyPhonePurchases = this.getWeeklyPhonePurchases(phoneProducts);
+        
+        // Распределение по месту покупки
+        const purchaseSourceStats = this.getSourceStats(this.products, 'purchaseSource');
+        
+        // Распределение по месту продажи (только проданные)
+        const saleSourceStats = this.getSourceStats(soldProducts, 'saleSource');
+        
+        // Последние продажи
+        const recentSales = soldProducts
+            .filter(p => p.soldAt)
+            .sort((a, b) => {
+                const dateA = a.soldAt?.toDate ? a.soldAt.toDate() : new Date(a.soldAt);
+                const dateB = b.soldAt?.toDate ? b.soldAt.toDate() : new Date(b.soldAt);
+                return dateB - dateA;
+            })
+            .slice(0, 20);
+        
+        return {
+            totalProfit,
+            totalTurnover,
+            soldCount: soldProducts.length,
+            inStockCount: inStockProducts.length,
+            weeklyPhonePurchases,
+            purchaseSourceStats,
+            saleSourceStats,
+            recentSales
+        };
+    }
+
+    // Статистика покупок iPhone по неделям текущего месяца
+    getWeeklyPhonePurchases(products) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-11
+        
+        // 4 недели + возможная 5-я
+        const weeks = [0, 0, 0, 0, 0];
+        
+        products.forEach(product => {
+            const created = product.createdAt?.toDate ? product.createdAt.toDate() : new Date(product.createdAt);
+            if (!created || isNaN(created.getTime())) return;
+            if (created.getFullYear() !== currentYear || created.getMonth() !== currentMonth) return;
+            
+            const day = created.getDate(); // 1-31
+            let weekIndex = Math.floor((day - 1) / 7); // 0..4
+            if (weekIndex < 0) weekIndex = 0;
+            if (weekIndex > 4) weekIndex = 4;
+            weeks[weekIndex] += 1;
+        });
+        
+        const labels = ['1 неделя', '2 неделя', '3 неделя', '4 неделя', '5 неделя'];
+        
+        return {
+            labels,
+            data: weeks
+        };
+    }
+
+    // Универсальная статистика по источникам (место покупки / продажи)
+    getSourceStats(products, field) {
+        const stats = {};
+        
+        products.forEach(product => {
+            let value = product[field] || 'unknown';
+            // Нормализуем значения
+            if (field === 'purchaseSource') {
+                // старые товары без значения будут считаться 'unknown'
+                const map = {
+                    avito_lenta: 'Авито лента',
+                    avito_skupka: 'Авито скупка',
+                    vk: 'ВК',
+                    tg: 'ТГ',
+                    unknown: 'Не указано'
+                };
+                stats[map[value] || map.unknown] = (stats[map[value] || map.unknown] || 0) + 1;
+            } else if (field === 'saleSource') {
+                const map = {
+                    avito: 'Авито',
+                    vk: 'ВК',
+                    tg: 'ТГ',
+                    unknown: 'Не указано'
+                };
+                stats[map[value] || map.unknown] = (stats[map[value] || map.unknown] || 0) + 1;
+            }
+        });
+        
+        return stats;
+    }
+
+    // Создание диаграмм
+    createCharts(stats) {
+        // Диаграмма покупок iPhone по неделям
+        const salesCtx = document.getElementById('salesChart');
+        if (salesCtx && typeof Chart !== 'undefined') {
+            new Chart(salesCtx, {
+                type: 'bar',
+                data: {
+                    labels: stats.weeklyPhonePurchases.labels,
+                    datasets: [{
+                        label: 'Количество покупок',
+                        data: stats.weeklyPhonePurchases.data,
+                        backgroundColor: 'rgba(0, 122, 255, 0.6)',
+                        borderColor: 'rgba(0, 122, 255, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Диаграмма по месту покупки
+        const profitCtx = document.getElementById('profitChart');
+        if (profitCtx && typeof Chart !== 'undefined') {
+            new Chart(profitCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(stats.purchaseSourceStats),
+                    datasets: [{
+                        data: Object.values(stats.purchaseSourceStats),
+                        backgroundColor: [
+                            'rgba(0, 122, 255, 0.8)',
+                            'rgba(52, 199, 89, 0.8)',
+                            'rgba(88, 86, 214, 0.8)',
+                            'rgba(255, 149, 0, 0.8)',
+                            'rgba(142, 142, 147, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(0, 122, 255, 1)',
+                            'rgba(52, 199, 89, 1)',
+                            'rgba(88, 86, 214, 1)',
+                            'rgba(255, 149, 0, 1)',
+                            'rgba(142, 142, 147, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Круговая диаграмма по месту продажи
+        const categoryCtx = document.getElementById('categoryChart');
+        if (categoryCtx && typeof Chart !== 'undefined') {
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(stats.saleSourceStats),
+                    datasets: [{
+                        data: Object.values(stats.saleSourceStats),
+                        backgroundColor: [
+                            'rgba(0, 122, 255, 0.8)',
+                            'rgba(88, 86, 214, 0.8)',
+                            'rgba(255, 149, 0, 0.8)',
+                            'rgba(52, 199, 89, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(0, 122, 255, 1)',
+                            'rgba(88, 86, 214, 1)',
+                            'rgba(255, 149, 0, 1)',
+                            'rgba(52, 199, 89, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Заполнение таблицы продаж
+    fillSalesTable(sales) {
+        const tbody = document.getElementById('salesTableBody');
+        if (!tbody) return;
+        
+        if (sales.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
+                        <p>Пока нет продаж</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const categoryLabels = {
+            phones: 'Телефоны',
+            accessories: 'Аксессуары',
+            parts: 'Запчасти'
+        };
+        
+        tbody.innerHTML = sales.map(product => {
+            const purchase = product.purchasePrice || 0;
+            const investment = product.investment || 0;
+            const selling = product.sellingPrice || 0;
+            const profit = selling - purchase - investment;
+            
+            const soldDate = product.soldAt?.toDate ? product.soldAt.toDate() : new Date(product.soldAt);
+            const dateStr = soldDate && !isNaN(soldDate.getTime()) 
+                ? soldDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : '-';
+            
+            return `
+                <tr>
+                    <td>${product.name || '-'}</td>
+                    <td>${categoryLabels[product.category] || product.category || '-'}</td>
+                    <td>${this.formatCurrency(purchase)}</td>
+                    <td>${this.formatCurrency(selling)}</td>
+                    <td class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">${this.formatCurrency(profit)}</td>
+                    <td>${dateStr}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Форматирование валюты
+    formatCurrency(amount) {
+        return new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'RUB',
+            minimumFractionDigits: 0
+        }).format(amount || 0);
+}
+    
     // Отображение списка запчастей
     renderPartsList() {
         console.log('Рендерим список запчастей');
@@ -1397,8 +1773,10 @@ async handleEditPhotoUpload(input) {
                 sellingPrice: null,
                 category: formData.category,
                 phoneStatus: formData.category === 'phones' ? formData.phoneStatus : null,
+                purchaseSource: formData.purchaseSource || null,
                 status: 'in-stock',
                 soldAt: null,
+                saleSource: null,
                 photos: formData.photos || [],
                 requiredParts: formData.requiredParts || '',
                 changeHistory: []
@@ -1521,7 +1899,7 @@ async saveProductChanges(productId) {
     }
     
     // Продажа товара
-    async sellProduct(productId, sellingPrice, notes = '') {
+    async sellProduct(productId, sellingPrice, notes = '', saleSource = null) {
         if (!this.checkAuth()) return;
         
         const product = this.products.find(p => p.id === productId);
@@ -1534,7 +1912,8 @@ async saveProductChanges(productId) {
             status: 'sold',
             sellingPrice: sellingPrice,
             soldAt: new Date().toISOString(),
-            saleNotes: notes
+            saleNotes: notes,
+            saleSource: saleSource || null
         };
         
         console.log('Продаем товар:', productId, updates);
@@ -1546,6 +1925,18 @@ async saveProductChanges(productId) {
         this.setButtonLoading('confirmSellBtn', false);
         
         if (result.success) {
+            // Закрываем модальное окно
+            const sellModal = document.getElementById('sellModal');
+            const modalOverlay = document.getElementById('modalOverlay');
+            if (sellModal) sellModal.classList.remove('active');
+            if (modalOverlay) modalOverlay.classList.remove('active');
+            
+            // Очищаем форму
+            document.getElementById('sellingPrice').value = '';
+            document.getElementById('saleNotes').value = '';
+            const saleSourceSelect = document.getElementById('saleSource');
+            if (saleSourceSelect) saleSourceSelect.value = 'avito';
+            
             this.showToast('Успех', 'Товар успешно продан', 'success');
             this.switchPage('home');
         } else {
@@ -1839,6 +2230,9 @@ async saveProductChanges(productId) {
                 break;
             case 'parts':
                 this.renderPartsList();
+                break;
+            case 'statistics':
+                this.renderStatistics();
                 break;
         }
     }
@@ -2229,7 +2623,7 @@ updateUploadProgress(current, total) {
                 const index = parseInt(btn.dataset.newIndex);
                 if (this.newEditPhotos && index >= 0 && index < this.newEditPhotos.length) {
                     this.newEditPhotos.splice(index, 1);
-                    this.showEditPhotoPreview();
+                this.showEditPhotoPreview();
                 }
             });
         });
@@ -2385,6 +2779,12 @@ updateUploadProgress(current, total) {
             this.logout();
         });
         
+        // Кнопка статистики в профиле
+        document.getElementById('profileStatistics')?.addEventListener('click', () => {
+            document.getElementById('profileModal')?.classList.remove('active');
+            this.switchPage('statistics');
+        });
+        
         // Поиск
         document.getElementById('searchBtn')?.addEventListener('click', () => {
             const container = document.getElementById('searchContainer');
@@ -2526,6 +2926,10 @@ updateUploadProgress(current, total) {
             this.switchPage('home');
         });
         
+        document.getElementById('backFromStatistics')?.addEventListener('click', () => {
+            this.switchPage('home');
+        });
+        
         // Форма добавления товара
         const addForm = document.getElementById('addProductForm');
         if (addForm) {
@@ -2554,6 +2958,7 @@ updateUploadProgress(current, total) {
                     purchasePrice: parseInt(document.getElementById('purchasePrice').value) || 0,
                     investment: parseInt(document.getElementById('investment').value) || 0,
                     category: document.getElementById('productCategory').value,
+                    purchaseSource: document.getElementById('purchaseSource')?.value || 'avito_lenta',
                     description: document.getElementById('productDescription').value.trim(),
                     requiredParts: document.getElementById('requiredParts').value.trim(),
                     photos: this.tempPhotos
@@ -2604,6 +3009,7 @@ updateUploadProgress(current, total) {
         document.getElementById('confirmSellBtn')?.addEventListener('click', () => {
             const sellingPrice = parseInt(document.getElementById('sellingPrice')?.value) || 0;
             const notes = document.getElementById('saleNotes')?.value.trim() || '';
+            const saleSource = document.getElementById('saleSource')?.value || 'avito';
             
             if (sellingPrice <= 0) {
                 this.showToast('Ошибка', 'Введите корректную цену продажи', 'error');
@@ -2611,7 +3017,7 @@ updateUploadProgress(current, total) {
             }
             
             if (this.selectedProductId) {
-                this.sellProduct(this.selectedProductId, sellingPrice, notes);
+                this.sellProduct(this.selectedProductId, sellingPrice, notes, saleSource);
             }
         });
         
