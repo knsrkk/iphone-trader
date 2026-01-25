@@ -1,4 +1,25 @@
-// app.js - ПОЛНЫЙ ФАЙЛ С FIREBASE И ЗАГРУЗКОЙ
+// app.js - ПОЛНЫЙ ПЕРЕПИС ДЛЯ SUPABASE
+// app.js - В НАЧАЛЕ ФАЙЛА ДОБАВЬТЕ
+if (!window.supabaseService) {
+    console.error('SupabaseService не загружен! Проверьте подключение файлов в index.html');
+    // Создаем заглушку для предотвращения ошибок
+    window.supabaseService = {
+        getProducts: () => Promise.resolve([]),
+        getParts: () => Promise.resolve([]),
+        getStats: () => Promise.resolve({ profit: 0, turnover: 0, investment: 0, inStock: 0, sold: 0 }),
+        login: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        register: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        logout: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        addProduct: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        updateProduct: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        deleteProduct: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        addPart: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        deletePart: () => Promise.resolve({ success: false, error: 'Сервис не загружен' }),
+        subscribeToProducts: () => () => {},
+        subscribeToParts: () => () => {},
+        getCurrentUser: () => null
+    };
+}
 class iPhoneTraderApp {
     _addingProduct = false;
     constructor() {
@@ -25,161 +46,27 @@ class iPhoneTraderApp {
         this.isLoading = false;
         this.currentLoadingType = null;
         
-        this.init();
-
+        // Настройки сжатия фото
         this.compressionSettings = {
             high: { maxWidth: 1200, quality: 0.7 },
             medium: { maxWidth: 800, quality: 0.5 },
             low: { maxWidth: 600, quality: 0.3 }
         };
         this.currentCompression = 'high';
-    }
-    compressImage(dataUrl, mimeType, customSettings = null) {
-        return new Promise((resolve, reject) => {
-            const settings = customSettings || this.compressionSettings[this.currentCompression];
-            const maxWidth = settings.maxWidth;
-            const quality = settings.quality;
-            
-            const img = new Image();
-            
-            img.onload = () => {
-                // Показываем прогресс
-                this.showCompressionProgress(true);
-                
-                // Создаем canvas для сжатия
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                
-                // Рассчитываем новые размеры
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-                
-                // Устанавливаем размеры canvas
-                canvas.width = width;
-                canvas.height = height;
-                
-                // Рисуем сжатое изображение
-                const ctx = canvas.getContext('2d');
-                
-                // Улучшаем качество сжатия
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                // Конвертируем HEIC/HEIF в JPEG если нужно
-                let outputMimeType = mimeType;
-                if (mimeType === 'image/heic' || mimeType === 'image/heif' || mimeType === 'image/heif-sequence') {
-                    outputMimeType = 'image/jpeg';
-                }
-                
-                // Для WebP если браузер поддерживает
-                if (outputMimeType === 'image/jpeg' && this.supportsWebP()) {
-                    outputMimeType = 'image/webp';
-                }
-                
-                // Получаем сжатое изображение
-                try {
-                    const compressedDataUrl = canvas.toDataURL(outputMimeType, quality);
-                    
-                    // Скрываем прогресс
-                    this.showCompressionProgress(false);
-                    
-                    // Обновляем статистику
-                    this.updatePhotoStats(compressedDataUrl, {
-                        originalWidth: img.width,
-                        originalHeight: img.height,
-                        compressedWidth: width,
-                        compressedHeight: height,
-                        quality: quality
-                    });
-                    
-                    resolve(compressedDataUrl);
-                } catch (error) {
-                    this.showCompressionProgress(false);
-                    reject(error);
-                }
-            };
-            
-            img.onerror = (error) => {
-                this.showCompressionProgress(false);
-                reject(error);
-            };
-            
-            img.src = dataUrl;
-        });
-    }
-    
-    // Проверка поддержки WebP
-    supportsWebP() {
-        const elem = document.createElement('canvas');
-        if (!!(elem.getContext && elem.getContext('2d'))) {
-            return elem.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-        }
-        return false;
-    }
-    
-    // Показать/скрыть прогресс сжатия
-    showCompressionProgress(show = true) {
-        const progressBar = document.getElementById('compressionProgressBar');
-        const progressContainer = document.getElementById('compressionProgress');
         
-        if (progressBar && progressContainer) {
-            if (show) {
-                progressContainer.classList.add('active');
-                progressBar.style.width = '0%';
-                setTimeout(() => {
-                    progressBar.style.width = '100%';
-                }, 10);
-            } else {
-                setTimeout(() => {
-                    progressBar.style.width = '0%';
-                    setTimeout(() => {
-                        progressContainer.classList.remove('active');
-                    }, 300);
-                }, 500);
-            }
-        }
+        this.init();
     }
-    
-    // Обновить статистику фото
-    updatePhotoStats(dataUrl, stats) {
-        const statsContainer = document.getElementById('photoStats');
-        if (!statsContainer) return;
-        
-        const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
-        const sizeInBytes = Math.ceil(base64Length * 3 / 4);
-        const sizeInKB = Math.round(sizeInBytes / 1024);
-        
-        statsContainer.innerHTML = `
-            <div class="stat-item">
-                <i class="fas fa-expand-alt"></i>
-                <span>${stats.compressedWidth}×${stats.compressedHeight}</span>
-            </div>
-            <div class="stat-item">
-                <i class="fas fa-weight-hanging"></i>
-                <span>${sizeInKB} KB</span>
-            </div>
-            <div class="stat-item">
-                <i class="fas fa-compress-alt"></i>
-                <span>${Math.round(stats.quality * 100)}%</span>
-            </div>
-        `;
-        
-        statsContainer.style.display = 'flex';
-    }
-    // Инициализация приложения
+
+    // ========== ОСНОВНЫЕ МЕТОДЫ ИНИЦИАЛИЗАЦИИ ==========
+
     async init() {
-        console.log('Приложение инициализируется...');
+        console.log('Приложение инициализируется с Supabase...');
 
         // Проверка iOS
-    if (this.isIOS()) {
-        console.log('Обнаружено iOS устройство');
-        this.showIOSWarning();
-    }
+        if (this.isIOS()) {
+            console.log('Обнаружено iOS устройство');
+            this.showIOSWarning();
+        }
         
         // Проверяем, есть ли сохраненный пользователь
         const savedUser = localStorage.getItem('iphoneTraderUser');
@@ -201,191 +88,9 @@ class iPhoneTraderApp {
         this.renderPartsList();
         this.initFullscreenPhoto();
     }
-    
-    // ========== МЕТОДЫ ЗАГРУЗКИ ==========
-    
-    showIOSWarning() {
-        // Можно добавить баннер или уведомление
-        const warning = document.createElement('div');
-        warning.className = 'ios-warning';
-        warning.innerHTML = `
-            <i class="fas fa-mobile-alt"></i>
-            <strong>iOS устройство:</strong> Обработка фото может занять несколько секунд
-        `;
-        
-        const addProductPage = document.getElementById('addProductPage');
-        if (addProductPage) {
-            const form = addProductPage.querySelector('.add-product-form');
-            if (form) {
-                form.insertBefore(warning, form.firstChild);
-            }
-        }
-    }
 
-    // Показать индикатор загрузки
-    showLoading(type = 'global', text = 'Загрузка...') {
-        this.isLoading = true;
-        this.currentLoadingType = type;
-        
-        switch(type) {
-            case 'global':
-                this.showGlobalLoader(text);
-                break;
-            case 'list':
-                this.showListLoader(text);
-                break;
-            case 'modal':
-                this.showModalLoader(text);
-                break;
-        }
-    }
-    
-    // Скрыть индикатор загрузки
-    hideLoading() {
-        this.isLoading = false;
-        this.currentLoadingType = null;
-        
-        // Глобальный загрузчик
-        const globalLoader = document.getElementById('globalLoader');
-        if (globalLoader) {
-            globalLoader.classList.remove('active');
-        }
-        
-        // Спиннеры в кнопках
-        document.querySelectorAll('.btn.loading').forEach(btn => {
-            btn.classList.remove('loading');
-        });
-        
-        // Модальные загрузчики
-        document.querySelectorAll('.modal-loading').forEach(loader => {
-            loader.classList.remove('active');
-        });
-        
-        // Скрыть скелетоны
-        document.querySelectorAll('.skeleton').forEach(skeleton => {
-            skeleton.style.display = 'none';
-        });
-    }
-    
-    // Показать глобальный загрузчик
-    showGlobalLoader(text = 'Загрузка...') {
-        let loader = document.getElementById('globalLoader');
-        
-        if (!loader) {
-            loader = document.createElement('div');
-            loader.className = 'loading-overlay';
-            loader.id = 'globalLoader';
-            loader.innerHTML = `
-                <div class="loader"></div>
-                <div class="loader-text">${text}</div>
-            `;
-            document.body.appendChild(loader);
-        }
-        
-        loader.querySelector('.loader-text').textContent = text;
-        loader.classList.add('active');
-    }
-    
-    // Показать загрузчик списка
-    showListLoader(text = 'Загрузка...') {
-        // Для главной страницы
-        const recentContainer = document.getElementById('recentProducts');
-        if (recentContainer && this.currentPage === 'home') {
-            recentContainer.innerHTML = `
-                <div class="list-loading">
-                    <div class="loader"></div>
-                    <div class="loader-text">${text}</div>
-                </div>
-            `;
-        }
-        
-        // Для склада
-        const warehouseContainer = document.getElementById('warehouseProducts');
-        if (warehouseContainer && this.currentPage === 'warehouse') {
-            warehouseContainer.innerHTML = `
-                <div class="list-loading">
-                    <div class="loader"></div>
-                    <div class="loader-text">${text}</div>
-                </div>
-            `;
-        }
-        
-        // Для запчастей
-        const partsContainer = document.getElementById('partsList');
-        if (partsContainer && this.currentPage === 'parts') {
-            partsContainer.innerHTML = `
-                <div class="list-loading">
-                    <div class="loader"></div>
-                    <div class="loader-text">${text}</div>
-                </div>
-            `;
-        }
-    }
-    
-    // Показать загрузчик в модальном окне
-    showModalLoader(modalId, text = 'Загрузка...') {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-        
-        let loader = modal.querySelector('.modal-loading');
-        if (!loader) {
-            loader = document.createElement('div');
-            loader.className = 'modal-loading';
-            loader.innerHTML = `
-                <div class="loader"></div>
-                <div class="loader-text">${text}</div>
-            `;
-            modal.appendChild(loader);
-        }
-        
-        loader.querySelector('.loader-text').textContent = text;
-        loader.classList.add('active');
-    }
-    
-    // Показать скелетоны загрузки
-    showSkeletons(containerId, count = 3) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        let skeletons = '';
-        for (let i = 0; i < count; i++) {
-            skeletons += `
-                <div class="skeleton skeleton-card"></div>
-                <div class="skeleton skeleton-text"></div>
-                <div class="skeleton skeleton-text"></div>
-                <div class="skeleton skeleton-text"></div>
-            `;
-        }
-        
-        container.innerHTML = skeletons;
-    }
-    
-    // Установить кнопку в состояние загрузки
-    setButtonLoading(buttonId, isLoading = true) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
-        
-        if (isLoading) {
-            button.classList.add('loading');
-            button.disabled = true;
-            
-            if (!button.querySelector('.loader-small')) {
-                const loader = document.createElement('div');
-                loader.className = 'loader-small active';
-                button.appendChild(loader);
-            } else {
-                button.querySelector('.loader-small').classList.add('active');
-            }
-        } else {
-            button.classList.remove('loading');
-            button.disabled = false;
-            button.querySelector('.loader-small')?.classList.remove('active');
-        }
-    }
-    
-    // ========== ОСНОВНЫЕ МЕТОДЫ ==========
-    
-    // Загрузка данных пользователя
+    // ========== ЗАГРУЗКА ДАННЫХ И SUPABASE ==========
+
     async loadUserData() {
         if (!this.currentUser || !this.currentUser.id) {
             console.log('Нет пользователя для загрузки данных');
@@ -399,19 +104,19 @@ class iPhoneTraderApp {
         this.showLoading('list', 'Загрузка данных...');
         
         try {
-            // Загружаем продукты
-            this.products = await firebaseService.getProducts(this.currentUser.id);
+            // Загружаем продукты через Supabase
+            this.products = await supabaseService.getProducts(this.currentUser.id);
             console.log('Товары загружены:', this.products.length);
             
             // Загружаем запчасти
-            this.requiredParts = await firebaseService.getParts(this.currentUser.id);
+            this.requiredParts = await supabaseService.getParts(this.currentUser.id);
             console.log('Запчасти загружены:', this.requiredParts.length);
             
             // Подписываемся на обновления в реальном времени
             this.setupRealtimeSubscriptions();
             
             // Обновляем статистику
-            this.updateStats();
+            await this.updateStats();
             this.updateCategoryCounts();
             
             // Обновляем текущую страницу
@@ -428,8 +133,7 @@ class iPhoneTraderApp {
             this.renderPartsList();
         }
     }
-    
-    // Настройка подписок на обновления в реальном времени
+
     setupRealtimeSubscriptions() {
         if (!this.currentUser) {
             console.log('Нет пользователя для подписки');
@@ -445,7 +149,7 @@ class iPhoneTraderApp {
         }
         
         // Подписываемся на продукты
-        this.productsUnsubscribe = firebaseService.subscribeToProducts(
+        this.productsUnsubscribe = supabaseService.subscribeToProducts(
             this.currentUser.id,
             (products) => {
                 console.log('Получены обновленные товары:', products.length);
@@ -465,7 +169,7 @@ class iPhoneTraderApp {
         );
         
         // Подписываемся на запчасти
-        this.partsUnsubscribe = firebaseService.subscribeToParts(
+        this.partsUnsubscribe = supabaseService.subscribeToParts(
             this.currentUser.id,
             (parts) => {
                 console.log('Получены обновленные запчасти:', parts.length);
@@ -478,72 +182,290 @@ class iPhoneTraderApp {
         
         console.log('Подписки на обновления установлены');
     }
-    
-    // Проверка авторизации
-    checkAuth() {
-        if (!this.currentUser) {
-            this.openAuthModal();
-            return false;
+
+    // ========== ОБРАБОТКА ТОВАРОВ (PRODUCTS) ==========
+
+    async addNewProduct(formData) {
+        console.log('=== НАЧАЛО addNewProduct ===');
+        console.log('this._addingProduct:', this._addingProduct);
+        console.log('this.currentUser ДО проверки auth:', this.currentUser);
+        console.log('checkAuth результат:', this.checkAuth());
+        
+        if (this._addingProduct) {
+            console.log('⚠️ Уже добавляется товар - пропускаем');
+            return;
         }
-        return true;
-    }
     
-    // Открытие окна авторизации
-    openAuthModal() {
-        document.getElementById('authModal').classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
+        if (!this.checkAuth()) {
+            console.log('❌ Не авторизован');
+            return;
+        }
     
-    // Закрытие окна авторизации
-    closeAuthModal() {
-        document.getElementById('authModal').classList.remove('active');
-        document.getElementById('modalOverlay').classList.remove('active');
-    }
+        this._addingProduct = true;
+        this.setButtonLoading('addProductSubmit', true);
     
-    // Обновление статистики
+        try {
+            console.log('📦 Данные формы:', formData);
+            console.log('👤 Текущий пользователь для добавления:', {
+                id: this.currentUser?.id,
+                auth_uid: this.currentUser?.auth_uid,
+                email: this.currentUser?.email
+            });
+    
+            // Подготавливаем данные для Supabase
+            const newProduct = {
+                name: formData.name,
+                description: formData.description || '',
+                purchase_price: parseFloat(formData.purchasePrice) || 0,
+                investment: parseFloat(formData.investment) || 0,
+                selling_price: null,
+                category: formData.category,
+                phone_status: formData.category === 'phones' ? formData.phoneStatus : null,
+                purchase_source: formData.purchaseSource || null,
+                status: 'in-stock',
+                sold_at: null,
+                sale_source: null,
+                photos: formData.photos || [],
+                required_parts: formData.requiredParts || '',
+                change_history: []
+            };
+    
+            console.log('📤 Отправляемый товар:', newProduct);
+            
+            const result = await supabaseService.addProduct(newProduct);
+            
+            console.log('📥 Результат добавления:', result);
+    
+            if (result.success) {
+                console.log('✅ Товар добавлен успешно!');
+                
+                if (formData.requiredParts && formData.requiredParts.trim() !== '') {
+                    await this.addRequiredPart(formData.requiredParts, newProduct.name);
+                }
+    
+                this.showToast('Успех', 'Товар успешно добавлен', 'success');
+    
+                // Очистка формы
+                const addProductForm = document.getElementById('addProductForm');
+                if (addProductForm) addProductForm.reset();
+                
+                const photoPreviewSection = document.getElementById('photoPreviewSection');
+                if (photoPreviewSection) photoPreviewSection.style.display = 'none';
+                
+                this.tempPhotos = [];
+    
+                // Переход на главную сразу
+                this.switchPage('home');
+                
+                // Обновляем список товаров (в фоне)
+                this.loadUserData().catch(err => console.error('Ошибка обновления списка:', err));
+    
+            } else {
+                console.error('❌ Ошибка добавления товара:', result.error);
+                this.showToast('Ошибка', result.error, 'error');
+            }
+        } catch (error) {
+            console.error('💥 Критическая ошибка:', error);
+            this.showToast('Ошибка', 'Не удалось добавить товар', 'error');
+        } finally {
+            console.log('=== КОНЕЦ addNewProduct ===');
+            this._addingProduct = false;
+            this.setButtonLoading('addProductSubmit', false);
+        }
+    }
+
+    async updateProduct(productId, updates) {
+        try {
+            const result = await supabaseService.updateProduct(productId, updates);
+            return result;
+        } catch (error) {
+            console.error('Ошибка обновления товара:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteProduct(productId) {
+        if (!this.checkAuth()) return;
+        
+        this.setButtonLoading('confirmDeleteBtn', true);
+        
+        const result = await supabaseService.deleteProduct(productId);
+        
+        this.setButtonLoading('confirmDeleteBtn', false);
+        
+        if (result.success) {
+            this.showToast('Успех', 'Товар успешно удален', 'success');
+            this.switchPage('warehouse');
+        } else {
+            this.showToast('Ошибка', result.error, 'error');
+        }
+    }
+
+    async sellProduct(productId, sellingPrice, notes = '', saleSource = null) {
+        if (!this.checkAuth()) return;
+        
+        const product = this.products.find(p => p.id === productId);
+        if (!product) {
+            this.showToast('Ошибка', 'Товар не найден', 'error');
+            return;
+        }
+        
+        const updates = {
+            status: 'sold',
+            selling_price: parseFloat(sellingPrice) || 0,
+            sold_at: new Date().toISOString(),
+            sale_notes: notes,
+            sale_source: saleSource || null
+        };
+        
+        console.log('Продаем товар:', productId, updates);
+        
+        this.setButtonLoading('confirmSellBtn', true);
+        
+        const result = await supabaseService.updateProduct(productId, updates);
+        
+        this.setButtonLoading('confirmSellBtn', false);
+        
+        if (result.success) {
+            // Закрываем модальное окно
+            const sellModal = document.getElementById('sellModal');
+            const modalOverlay = document.getElementById('modalOverlay');
+            if (sellModal) sellModal.classList.remove('active');
+            if (modalOverlay) modalOverlay.classList.remove('active');
+            
+            // Очищаем форму
+            document.getElementById('sellingPrice').value = '';
+            document.getElementById('saleNotes').value = '';
+            const saleSourceSelect = document.getElementById('saleSource');
+            if (saleSourceSelect) saleSourceSelect.value = 'avito';
+            
+            this.showToast('Успех', 'Товар успешно продан', 'success');
+            this.switchPage('home');
+        } else {
+            this.showToast('Ошибка', result.error, 'error');
+        }
+    }
+
+    // ========== ОБРАБОТКА ЗАПЧАСТЕЙ (PARTS) ==========
+
+    async addRequiredPart(partDescription, productName = '') {
+        if (!this.checkAuth()) return;
+        
+        const partsArray = partDescription.split(',').map(part => part.trim()).filter(part => part !== '');
+        
+        console.log('Добавляем запчасти:', partsArray);
+        
+        for (const partName of partsArray) {
+            const existingPart = this.requiredParts.find(p => 
+                p.name.toLowerCase() === partName.toLowerCase()
+            );
+            
+            if (!existingPart) {
+                const partData = {
+                    name: partName,
+                    product: productName || 'Вручную добавлено',
+                    source: productName ? 'product' : 'manual'
+                };
+                
+                await supabaseService.addPart(partData);
+            }
+        }
+        
+        return this.requiredParts;
+    }
+
+    async removeRequiredPart(partId) {
+        if (!this.checkAuth()) return false;
+        
+        console.log('Удаляем запчасть:', partId);
+        
+        const result = await supabaseService.deletePart(partId);
+        return result.success;
+    }
+
+    async removePart(partId) {
+        const partItem = document.querySelector(`.part-item[data-part-id="${partId}"]`);
+        if (partItem) {
+            partItem.style.opacity = '0.5';
+            partItem.style.pointerEvents = 'none';
+        }
+        
+        const success = await this.removeRequiredPart(partId);
+        
+        if (success) {
+            this.renderPartsList();
+            this.showToast('Успех', 'Запчасть удалена', 'success');
+        } else {
+            if (partItem) {
+                partItem.style.opacity = '1';
+                partItem.style.pointerEvents = 'auto';
+            }
+            this.showToast('Ошибка', 'Не удалось удалить запчасть', 'error');
+        }
+    }
+
+    // ========== СТАТИСТИКА ==========
+
     async updateStats() {
         if (!this.currentUser) {
-            // Если нет пользователя, показываем нули
             this.setStatsToZero();
             return;
         }
         
         try {
-            const stats = await firebaseService.getStats(this.currentUser.id);
+            const stats = await supabaseService.getStats(this.currentUser.id);
             
             // Быстрая статистика
-            document.getElementById('quickProfit').textContent = `${stats.profit.toLocaleString()} ₽`;
-            document.getElementById('quickInStock').textContent = stats.inStock;
+            const quickProfitEl = document.getElementById('quickProfit');
+            const quickInStockEl = document.getElementById('quickInStock');
+            
+            if (quickProfitEl) quickProfitEl.textContent = `${stats.profit.toLocaleString()} ₽`;
+            if (quickInStockEl) quickInStockEl.textContent = stats.inStock;
             
             // Детальная статистика
-            document.getElementById('statProfit').textContent = `${stats.profit.toLocaleString()} ₽`;
-            document.getElementById('statTurnover').textContent = `${stats.turnover.toLocaleString()} ₽`;
-            document.getElementById('statInStock').textContent = stats.inStock;
-            document.getElementById('statSold').textContent = stats.sold;
+            const statProfitEl = document.getElementById('statProfit');
+            const statTurnoverEl = document.getElementById('statTurnover');
+            const statInStockEl = document.getElementById('statInStock');
+            const statSoldEl = document.getElementById('statSold');
+            
+            if (statProfitEl) statProfitEl.textContent = `${stats.profit.toLocaleString()} ₽`;
+            if (statTurnoverEl) statTurnoverEl.textContent = `${stats.turnover.toLocaleString()} ₽`;
+            if (statInStockEl) statInStockEl.textContent = stats.inStock;
+            if (statSoldEl) statSoldEl.textContent = stats.sold;
             
         } catch (error) {
             console.error('Ошибка обновления статистики:', error);
             this.setStatsToZero();
         }
     }
-    
-    // Установка нулевой статистики
+
     setStatsToZero() {
-        document.getElementById('quickProfit').textContent = `0 ₽`;
-        document.getElementById('quickInStock').textContent = '0';
-        document.getElementById('statProfit').textContent = `0 ₽`;
-        document.getElementById('statTurnover').textContent = `0 ₽`;
-        document.getElementById('statInStock').textContent = '0';
-        document.getElementById('statSold').textContent = '0';
+        const quickProfitEl = document.getElementById('quickProfit');
+        const quickInStockEl = document.getElementById('quickInStock');
+        const statProfitEl = document.getElementById('statProfit');
+        const statTurnoverEl = document.getElementById('statTurnover');
+        const statInStockEl = document.getElementById('statInStock');
+        const statSoldEl = document.getElementById('statSold');
+        
+        if (quickProfitEl) quickProfitEl.textContent = `0 ₽`;
+        if (quickInStockEl) quickInStockEl.textContent = '0';
+        if (statProfitEl) statProfitEl.textContent = `0 ₽`;
+        if (statTurnoverEl) statTurnoverEl.textContent = `0 ₽`;
+        if (statInStockEl) statInStockEl.textContent = '0';
+        if (statSoldEl) statSoldEl.textContent = '0';
     }
-    
-    // Обновление счетчиков категорий
+
     updateCategoryCounts() {
         if (!this.currentUser) {
-            document.getElementById('categoryPhones').textContent = '0';
-            document.getElementById('categoryAccessories').textContent = '0';
-            document.getElementById('categoryParts').textContent = '0';
-            document.getElementById('categorySold').textContent = '0';
+            const categoryPhonesEl = document.getElementById('categoryPhones');
+            const categoryAccessoriesEl = document.getElementById('categoryAccessories');
+            const categoryPartsEl = document.getElementById('categoryParts');
+            const categorySoldEl = document.getElementById('categorySold');
+            
+            if (categoryPhonesEl) categoryPhonesEl.textContent = '0';
+            if (categoryAccessoriesEl) categoryAccessoriesEl.textContent = '0';
+            if (categoryPartsEl) categoryPartsEl.textContent = '0';
+            if (categorySoldEl) categorySoldEl.textContent = '0';
             return;
         }
         
@@ -552,13 +474,214 @@ class iPhoneTraderApp {
         const partsCount = this.products.filter(p => p.category === 'parts' && p.status === 'in-stock').length;
         const soldCount = this.products.filter(p => p.status === 'sold').length;
         
-        document.getElementById('categoryPhones').textContent = phoneCount;
-        document.getElementById('categoryAccessories').textContent = accessoriesCount;
-        document.getElementById('categoryParts').textContent = partsCount;
-        document.getElementById('categorySold').textContent = soldCount;
+        const categoryPhonesEl = document.getElementById('categoryPhones');
+        const categoryAccessoriesEl = document.getElementById('categoryAccessories');
+        const categoryPartsEl = document.getElementById('categoryParts');
+        const categorySoldEl = document.getElementById('categorySold');
+        
+        if (categoryPhonesEl) categoryPhonesEl.textContent = phoneCount;
+        if (categoryAccessoriesEl) categoryAccessoriesEl.textContent = accessoriesCount;
+        if (categoryPartsEl) categoryPartsEl.textContent = partsCount;
+        if (categorySoldEl) categorySoldEl.textContent = soldCount;
     }
-    
-    // Получение товаров по фильтру и сортировке
+
+    // ========== ПОЛЬЗОВАТЕЛЬ И АВТОРИЗАЦИЯ ==========
+
+    updateUserProfile(user) {
+        this.currentUser = user;
+        
+        if (user) {
+            localStorage.setItem('iphoneTraderUser', JSON.stringify(user));
+            
+            const profileHeader = document.getElementById('profileHeader');
+            if (profileHeader) {
+                profileHeader.innerHTML = `
+                    <div class="profile-avatar">
+                        ${user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div class="profile-name">${user.name || 'Пользователь'}</div>
+                    <div class="profile-email">${user.email || ''}</div>
+                `;
+            }
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.style.display = 'flex';
+        } else {
+            localStorage.removeItem('iphoneTraderUser');
+            
+            const profileHeader = document.getElementById('profileHeader');
+            if (profileHeader) {
+                profileHeader.innerHTML = `
+                    <div class="profile-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="profile-name">Гость</div>
+                    <div class="profile-email">Войдите в аккаунт</div>
+                `;
+            }
+            
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.style.display = 'none';
+        }
+    }
+
+    async logout() {
+        const result = await supabaseService.logout();
+        
+        if (result.success) {
+            // Отписываемся от обновлений
+            if (this.productsUnsubscribe) {
+                this.productsUnsubscribe();
+                this.productsUnsubscribe = null;
+            }
+            if (this.partsUnsubscribe) {
+                this.partsUnsubscribe();
+                this.partsUnsubscribe = null;
+            }
+            
+            this.currentUser = null;
+            this.products = [];
+            this.requiredParts = [];
+            
+            const profileModal = document.getElementById('profileModal');
+            if (profileModal) profileModal.classList.remove('active');
+            
+            this.updateUserProfile(null);
+            
+            // Обновляем отображение
+            this.updateStats();
+            this.updateCategoryCounts();
+            this.renderHomePage();
+            this.renderWarehouse();
+            
+            this.showToast('Успех', 'Вы вышли из системы', 'success');
+            this.openAuthModal();
+        }
+    }
+
+    checkAuth() {
+        if (!this.currentUser) {
+            this.openAuthModal();
+            return false;
+        }
+        return true;
+    }
+
+    openAuthModal() {
+        const authModal = document.getElementById('authModal');
+        const modalOverlay = document.getElementById('modalOverlay');
+        
+        if (authModal) authModal.classList.add('active');
+        if (modalOverlay) modalOverlay.classList.add('active');
+    }
+
+    closeAuthModal() {
+        const authModal = document.getElementById('authModal');
+        const modalOverlay = document.getElementById('modalOverlay');
+        
+        if (authModal) authModal.classList.remove('active');
+        if (modalOverlay) modalOverlay.classList.remove('active');
+    }
+
+    async handleLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        
+        console.log('Попытка входа:', { email, passwordLength: password.length });
+        
+        if (!email || !password) {
+            this.showToast('Ошибка', 'Заполните все поля', 'error');
+            return;
+        }
+        
+        console.log('Вызываем supabaseService.login...');
+        this.setButtonLoading('loginSubmit', true);
+        
+        const result = await supabaseService.login(email, password);
+        
+        console.log('Результат входа:', result);
+        
+        this.setButtonLoading('loginSubmit', false);
+        
+        if (result.success) {
+            console.log('Вход успешен, пользователь:', result.user);
+            this.currentUser = result.user;
+            this.updateUserProfile(this.currentUser);
+            
+            this.showLoading('global', 'Загрузка данных...');
+            await this.loadUserData();
+            
+            this.closeAuthModal();
+            this.showToast('Успех', 'Вы успешно вошли в систему', 'success');
+            
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) loginForm.reset();
+        } else {
+            console.error('Ошибка входа:', result.error);
+            this.showToast('Ошибка', result.error || 'Не удалось войти', 'error');
+        }
+    }
+
+    async handleRegister() {
+        const name = document.getElementById('registerName').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('registerConfirmPassword').value;
+        
+        // Валидация
+        if (!name || !email || !password || !confirmPassword) {
+            this.showToast('Ошибка', 'Заполните все поля', 'error');
+            return;
+        }
+        
+        if (password.length < 6) {
+            this.showToast('Ошибка', 'Пароль должен быть не менее 6 символов', 'error');
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            this.showToast('Ошибка', 'Пароли не совпадают', 'error');
+            return;
+        }
+        
+        // Простая валидация email
+        if (!email.includes('@') || !email.includes('.')) {
+            this.showToast('Ошибка', 'Введите корректный email', 'error');
+            return;
+        }
+        
+        console.log('Попытка регистрации:', email);
+        
+        this.setButtonLoading('registerSubmit', true);
+        
+        const result = await supabaseService.register(email, password, name);
+        
+        this.setButtonLoading('registerSubmit', false);
+        
+        if (result.success) {
+            // Автоматически логиним пользователя
+            this.currentUser = result.user;
+            this.updateUserProfile(this.currentUser);
+            
+            // Закрываем модальное окно
+            this.closeAuthModal();
+            
+            // Обновляем отображение
+            this.showLoading('global', 'Инициализация аккаунта...');
+            await this.loadUserData();
+            
+            this.showToast('Успех', 'Регистрация прошла успешно', 'success');
+            
+            // Сбрасываем форму
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) registerForm.reset();
+        } else {
+            this.showToast('Ошибка', result.error, 'error');
+        }
+    }
+
+    // ========== ОТОБРАЖЕНИЕ СТРАНИЦ ==========
+
     getFilteredProducts() {
         let filtered = [...this.products];
         
@@ -573,7 +696,7 @@ class iPhoneTraderApp {
         
         // Дополнительная фильтрация по статусу телефонов
         if (this.currentFilter === 'phones' && this.currentPhoneStatus !== 'all') {
-            filtered = filtered.filter(p => p.phoneStatus === this.currentPhoneStatus);
+            filtered = filtered.filter(p => p.phone_status === this.currentPhoneStatus);
         }
         
         // Поиск
@@ -581,7 +704,7 @@ class iPhoneTraderApp {
             const query = this.searchQuery.toLowerCase();
             filtered = filtered.filter(p => 
                 p.name.toLowerCase().includes(query) || 
-                p.description.toLowerCase().includes(query)
+                (p.description && p.description.toLowerCase().includes(query))
             );
         }
         
@@ -589,30 +712,29 @@ class iPhoneTraderApp {
         switch (this.currentSort) {
             case 'newest':
                 filtered.sort((a, b) => {
-                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                    const dateA = new Date(a.created_at);
+                    const dateB = new Date(b.created_at);
                     return dateB - dateA;
                 });
                 break;
             case 'oldest':
                 filtered.sort((a, b) => {
-                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                    const dateA = new Date(a.created_at);
+                    const dateB = new Date(b.created_at);
                     return dateA - dateB;
                 });
                 break;
             case 'price-high':
-                filtered.sort((a, b) => (b.sellingPrice || 0) - (a.sellingPrice || 0));
+                filtered.sort((a, b) => (b.selling_price || 0) - (a.selling_price || 0));
                 break;
             case 'price-low':
-                filtered.sort((a, b) => (a.sellingPrice || 0) - (b.sellingPrice || 0));
+                filtered.sort((a, b) => (a.selling_price || 0) - (b.selling_price || 0));
                 break;
         }
         
         return filtered;
     }
-    
-    // Отображение карточки товара
+
     renderProductCard(product) {
         const statusClass = product.status === 'sold' ? 'sold' : 'in-stock';
         const statusText = product.status === 'sold' ? 'Продано' : 'В наличии';
@@ -622,8 +744,8 @@ class iPhoneTraderApp {
         let phoneStatusClass = '';
         let phoneStatusText = '';
         
-        if (product.category === 'phones' && product.phoneStatus) {
-            switch(product.phoneStatus) {
+        if (product.category === 'phones' && product.phone_status) {
+            switch(product.phone_status) {
                 case 'new':
                     phoneStatusIcon = 'fas fa-box';
                     phoneStatusClass = 'new';
@@ -652,7 +774,7 @@ class iPhoneTraderApp {
         const firstPhoto = hasPhoto ? product.photos[0] : null;
         
         // Рассчитываем итоговые затраты
-        const totalCost = (product.purchasePrice || 0) + (product.investment || 0);
+        const totalCost = (product.purchase_price || 0) + (product.investment || 0);
         
         // Показываем цену продажи если товар продан, иначе итоговые затраты
         let priceText;
@@ -660,8 +782,8 @@ class iPhoneTraderApp {
         
         if (product.status === 'sold') {
             // Для проданных товаров показываем цену продажи
-            priceText = product.sellingPrice ? 
-                `${product.sellingPrice.toLocaleString()} ₽` : 
+            priceText = product.selling_price ? 
+                `${product.selling_price.toLocaleString()} ₽` : 
                 `<span class="product-price no-price">Продано</span>`;
         } else {
             // Для товаров в наличии показываем итоговые затраты
@@ -680,8 +802,8 @@ class iPhoneTraderApp {
                 <div class="product-info">
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                         <div class="product-name">${product.name}</div>
-                        ${product.category === 'phones' && product.phoneStatus ? 
-                            `<span class="phone-status ${product.phoneStatus}">
+                        ${product.category === 'phones' && product.phone_status ? 
+                            `<span class="phone-status ${product.phone_status}">
                                 <i class="${phoneStatusIcon}"></i> ${phoneStatusText}
                             </span>` : ''
                         }
@@ -701,8 +823,7 @@ class iPhoneTraderApp {
             </div>
         `;
     }
-    
-    // Отображение главной страницы
+
     renderHomePage() {
         console.log('Рендерим главную страницу');
         
@@ -712,8 +833,8 @@ class iPhoneTraderApp {
             recentProducts = recentProducts
                 .filter(p => p.status === 'in-stock')
                 .sort((a, b) => {
-                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                    const dateA = new Date(a.created_at);
+                    const dateB = new Date(b.created_at);
                     return dateB - dateA;
                 })
                 .slice(0, 3);
@@ -751,20 +872,25 @@ class iPhoneTraderApp {
             `;
             
             if (this.currentUser) {
-                document.getElementById('addFirstProduct')?.addEventListener('click', () => {
-                    this.switchPage('addProduct');
-                });
+                const addFirstProductBtn = document.getElementById('addFirstProduct');
+                if (addFirstProductBtn) {
+                    addFirstProductBtn.addEventListener('click', () => {
+                        this.switchPage('addProduct');
+                    });
+                }
             } else {
-                document.getElementById('loginFirst')?.addEventListener('click', () => {
-                    this.openAuthModal();
-                });
+                const loginFirstBtn = document.getElementById('loginFirst');
+                if (loginFirstBtn) {
+                    loginFirstBtn.addEventListener('click', () => {
+                        this.openAuthModal();
+                    });
+                }
             }
         } else {
             container.innerHTML = recentProducts.map(p => this.renderProductCard(p)).join('');
         }
     }
-    
-    // Отображение склада
+
     renderWarehouse() {
         console.log('Рендерим склад');
         
@@ -793,9 +919,12 @@ class iPhoneTraderApp {
                 </div>
             `;
             
-            document.getElementById('loginFromWarehouse')?.addEventListener('click', () => {
-                this.openAuthModal();
-            });
+            const loginFromWarehouseBtn = document.getElementById('loginFromWarehouse');
+            if (loginFromWarehouseBtn) {
+                loginFromWarehouseBtn.addEventListener('click', () => {
+                    this.openAuthModal();
+                });
+            }
             return;
         }
         
@@ -814,15 +943,17 @@ class iPhoneTraderApp {
                 </div>
             `;
             
-            document.getElementById('addFromWarehouse')?.addEventListener('click', () => {
-                this.switchPage('addProduct');
-            });
+            const addFromWarehouseBtn = document.getElementById('addFromWarehouse');
+            if (addFromWarehouseBtn) {
+                addFromWarehouseBtn.addEventListener('click', () => {
+                    this.switchPage('addProduct');
+                });
+            }
         } else {
             container.innerHTML = products.map(p => this.renderProductCard(p)).join('');
         }
     }
-    
-    // Отображение деталей товара
+
     renderProductDetail(productId) {
         console.log('Рендерим детали товара:', productId);
         
@@ -833,16 +964,16 @@ class iPhoneTraderApp {
         }
         
         this.selectedProductId = productId;
-        const totalCost = (product.purchasePrice || 0) + (product.investment || 0);
-        const profit = product.sellingPrice ? product.sellingPrice - totalCost : 0;
+        const totalCost = (product.purchase_price || 0) + (product.investment || 0);
+        const profit = product.selling_price ? product.selling_price - totalCost : 0;
         const statusClass = product.status === 'sold' ? 'sold' : 'in-stock';
         const statusText = product.status === 'sold' ? 'Продано' : 'В наличии';
         
         // Статус телефона
         let phoneStatusInfo = '';
-        if (product.category === 'phones' && product.phoneStatus) {
+        if (product.category === 'phones' && product.phone_status) {
             let phoneStatusText = '';
-            switch(product.phoneStatus) {
+            switch(product.phone_status) {
                 case 'new': phoneStatusText = 'Новый'; break;
                 case 'in-progress': phoneStatusText = 'В процессе'; break;
                 case 'ready': phoneStatusText = 'Готовый'; break;
@@ -878,19 +1009,19 @@ class iPhoneTraderApp {
         
         // Нужные запчасти
         let requiredPartsHtml = '';
-        if (product.requiredParts) {
+        if (product.required_parts) {
             requiredPartsHtml = `
                 <div class="info-section">
                     <h3><i class="fas fa-wrench"></i> Нужные запчасти</h3>
-                    <p>${product.requiredParts}</p>
+                    <p>${product.required_parts}</p>
                 </div>
             `;
         }
         
         // Дата продажи
         let soldAtHtml = '';
-        if (product.status === 'sold' && product.soldAt) {
-            const soldDate = product.soldAt?.toDate ? product.soldAt.toDate() : new Date(product.soldAt);
+        if (product.status === 'sold' && product.sold_at) {
+            const soldDate = new Date(product.sold_at);
             soldAtHtml = `
                 <div class="info-section">
                     <h3><i class="fas fa-calendar-check"></i> Дата продажи</h3>
@@ -941,7 +1072,7 @@ class iPhoneTraderApp {
             <div class="product-prices">
                 <div class="price-item">
                     <div class="price-label">Цена покупки</div>
-                    <div class="price-value purchase">${(product.purchasePrice || 0).toLocaleString()} ₽</div>
+                    <div class="price-value purchase">${(product.purchase_price || 0).toLocaleString()} ₽</div>
                 </div>
                 <div class="price-item">
                     <div class="price-label">Вложения</div>
@@ -951,10 +1082,10 @@ class iPhoneTraderApp {
                     <div class="price-label">Итого затрат</div>
                     <div class="price-value total-cost">${totalCost.toLocaleString()} ₽</div>
                 </div>
-                ${product.sellingPrice && product.sellingPrice > 0 ? `
+                ${product.selling_price && product.selling_price > 0 ? `
                     <div class="price-item">
                         <div class="price-label">Цена продажи</div>
-                        <div class="price-value selling">${product.sellingPrice.toLocaleString()} ₽</div>
+                        <div class="price-value selling">${product.selling_price.toLocaleString()} ₽</div>
                     </div>
                     <div class="price-item">
                         <div class="price-label">Прибыль</div>
@@ -977,20 +1108,188 @@ class iPhoneTraderApp {
         
         // Добавляем обработчики событий
         if (product.status !== 'sold') {
-            document.getElementById('sellProductBtn')?.addEventListener('click', () => {
-                this.openSellModal(product);
-            });
+            const sellProductBtn = document.getElementById('sellProductBtn');
+            if (sellProductBtn) {
+                sellProductBtn.addEventListener('click', () => {
+                    this.openSellModal(product);
+                });
+            }
             
-            document.getElementById('editProductBtn')?.addEventListener('click', () => {
-                this.openEditForm(product);
-            });
+            const editProductBtn = document.getElementById('editProductBtn');
+            if (editProductBtn) {
+                editProductBtn.addEventListener('click', () => {
+                    this.openEditForm(product);
+                });
+            }
         }
         
         // Инициализация просмотра фото
         this.initPhotoViewers();
     }
-    
-    // Отображение формы редактирования
+
+    renderPartsList() {
+        console.log('Рендерим список запчастей');
+        
+        let userParts = this.requiredParts;
+        const container = document.getElementById('partsList');
+        
+        if (!container) {
+            console.error('Контейнер partsList не найден');
+            return;
+        }
+        
+        // Если идет загрузка, показываем скелетоны
+        if (this.isLoading && this.currentLoadingType === 'list') {
+            this.showSkeletons('partsList', 3);
+            return;
+        }
+        
+        if (userParts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-parts">
+                    <i class="fas fa-wrench"></i>
+                    <p>${this.currentUser ? 'Нет добавленных запчастей' : 'Войдите в аккаунт для просмотра запчастей'}</p>
+                    ${this.currentUser ? `
+                        <p class="parts-hint">Добавьте запчасти при создании товара или вручную здесь</p>
+                    ` : `
+                        <button class="btn btn-primary" id="loginFromParts">
+                            <i class="fas fa-sign-in-alt"></i> Войти в аккаунт
+                        </button>
+                    `}
+                </div>
+            `;
+            
+            if (!this.currentUser) {
+                const loginFromPartsBtn = document.getElementById('loginFromParts');
+                if (loginFromPartsBtn) {
+                    loginFromPartsBtn.addEventListener('click', () => {
+                        this.openAuthModal();
+                    });
+                }
+            }
+        } else {
+            container.innerHTML = userParts.map(part => `
+                <div class="part-item" data-part-id="${part.id}">
+                    <div class="part-item-content">
+                        <div class="part-item-name">${part.name}</div>
+                        <div class="part-item-info">
+                            ${part.product ? `Из товара: ${part.product}` : 'Добавлено вручную'} • 
+                            ${part.created_at ? 
+                                new Date(part.created_at).toLocaleDateString('ru-RU') : 
+                                'Нет даты'}
+                        </div>
+                    </div>
+                    <div class="part-item-actions">
+                        <button class="part-item-btn delete" onclick="app.removePart('${part.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    renderStatistics() {
+        if (!this.checkAuth()) {
+            this.switchPage('home');
+            return;
+        }
+
+        const container = document.getElementById('statisticsContainer');
+        if (!container) return;
+
+        // Рассчитываем статистику
+        const stats = this.calculateStatistics();
+        
+        container.innerHTML = `
+            <!-- Общая статистика -->
+            <div class="stats-overview">
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon profit">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Общая прибыль</div>
+                        <div class="stat-overview-value">${this.formatCurrency(stats.totalProfit)}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon sales">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Оборот</div>
+                        <div class="stat-overview-value">${this.formatCurrency(stats.totalTurnover)}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon sold">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">Продано товаров</div>
+                        <div class="stat-overview-value">${stats.soldCount}</div>
+                    </div>
+                </div>
+                <div class="stat-overview-card">
+                    <div class="stat-overview-icon stock">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stat-overview-content">
+                        <div class="stat-overview-label">В наличии</div>
+                        <div class="stat-overview-value">${stats.inStockCount}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Диаграммы -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h3 class="chart-title">Покупки iPhone по неделям (текущий месяц)</h3>
+                    <canvas id="salesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Распределение по месту покупки</h3>
+                    <canvas id="profitChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="chart-title">Распределение по месту продажи</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Таблица продаж -->
+            <div class="table-section">
+                <h3 class="section-title">Последние продажи</h3>
+                <div class="stats-table-container">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th>Категория</th>
+                                <th>Цена покупки</th>
+                                <th>Цена продажи</th>
+                                <th>Прибыль</th>
+                                <th>Дата продажи</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesTableBody">
+                            <!-- Заполнится динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // Создаем диаграммы
+        this.createCharts(stats);
+        
+        // Заполняем таблицу
+        this.fillSalesTable(stats.recentSales);
+    }
+
+    // ========== МЕТОДЫ РЕДАКТИРОВАНИЯ ==========
+
     renderEditForm(product) {
         console.log('Рендерим форму редактирования:', product.id);
         
@@ -1021,7 +1320,7 @@ class iPhoneTraderApp {
                             <i class="fas fa-shopping-cart"></i> Цена покупки
                         </label>
                         <div class="price-input">
-                            <input type="number" id="editPurchasePrice" class="form-input" value="${product.purchasePrice || 0}" required>
+                            <input type="number" id="editPurchasePrice" class="form-input" value="${product.purchase_price || 0}" required>
                             <span class="currency">₽</span>
                         </div>
                     </div>
@@ -1057,10 +1356,10 @@ class iPhoneTraderApp {
                         </label>
                         <div class="category-select">
                             <select id="editPhoneStatus" class="form-select">
-                                <option value="new" ${product.phoneStatus === 'new' ? 'selected' : ''}>Новый</option>
-                                <option value="in-progress" ${product.phoneStatus === 'in-progress' ? 'selected' : ''}>В процессе</option>
-                                <option value="ready" ${product.phoneStatus === 'ready' ? 'selected' : ''}>Готовый</option>
-                                <option value="for-sale" ${product.phoneStatus === 'for-sale' ? 'selected' : ''}>На продаже</option>
+                                <option value="new" ${product.phone_status === 'new' ? 'selected' : ''}>Новый</option>
+                                <option value="in-progress" ${product.phone_status === 'in-progress' ? 'selected' : ''}>В процессе</option>
+                                <option value="ready" ${product.phone_status === 'ready' ? 'selected' : ''}>Готовый</option>
+                                <option value="for-sale" ${product.phone_status === 'for-sale' ? 'selected' : ''}>На продаже</option>
                             </select>
                             <i class="fas fa-chevron-down"></i>
                         </div>
@@ -1071,7 +1370,7 @@ class iPhoneTraderApp {
                     <label for="editRequiredParts" class="form-label">
                         <i class="fas fa-wrench"></i> Нужные запчасти
                     </label>
-                    <textarea id="editRequiredParts" class="form-textarea" rows="2">${product.requiredParts || ''}</textarea>
+                    <textarea id="editRequiredParts" class="form-textarea" rows="2">${product.required_parts || ''}</textarea>
                 </div>
             </div>
     
@@ -1173,246 +1472,748 @@ class iPhoneTraderApp {
             </div>
         `;
         
-        // Сохраняем текущие фото для редактирования
-    this.editPhotos = [...(product.photos || [])];
-    this.newEditPhotos = [];
-    
-    // Показываем превью новых фото если они есть
-    if (this.newEditPhotos && this.newEditPhotos.length > 0) {
-        this.showEditPhotoPreview();
+        // Добавляем обработчики событий
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProductChanges(product.id);
+        });
+        
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        if (cancelEditBtn) {
+            cancelEditBtn.addEventListener('click', () => {
+                // Очищаем массивы фото при отмене редактирования
+                this.editPhotos = [];
+                this.newEditPhotos = [];
+                this.switchPage('productDetail');
+            });
+        }
+        
+        const deleteProductBtn = document.getElementById('deleteProductBtn');
+        if (deleteProductBtn) {
+            deleteProductBtn.addEventListener('click', () => {
+                this.openDeleteModal(product);
+            });
+        }
+        
+        // Показываем/скрываем поле статуса телефона
+        const editProductCategory = document.getElementById('editProductCategory');
+        if (editProductCategory) {
+            editProductCategory.addEventListener('change', (e) => {
+                const phoneStatusGroup = document.getElementById('editPhoneStatusGroup');
+                if (phoneStatusGroup) {
+                    phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
+                }
+            });
+        }
+        
+        // Удаление существующих фото
+        document.querySelectorAll('.remove-photo-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.index);
+                
+                // Проверяем валидность индекса
+                if (isNaN(index) || !this.editPhotos || index < 0 || index >= this.editPhotos.length) {
+                    console.error('Неверный индекс фото для удаления:', index);
+                    return;
+                }
+                
+                // Удаляем фото из массива
+                this.editPhotos.splice(index, 1);
+                
+                // Обновляем форму с обновленными фото
+                this.renderEditForm({...product, photos: this.editPhotos});
+            });
+        });
+        
+        // Добавление новых фото при редактировании
+        const editPhotoInput = document.getElementById('editPhotoInput');
+        if (editPhotoInput) {
+            editPhotoInput.addEventListener('change', async (e) => {
+                await this.handleEditPhotoUpload(e.target);
+            });
+        }
+    }
+
+    async saveProductChanges(productId) {
+        if (!this.checkAuth()) return;
+        
+        const product = this.products.find(p => p.id === productId);
+        if (!product) {
+            this.showToast('Ошибка', 'Товар не найден', 'error');
+            return;
+        }
+        
+        // Инициализируем массивы если они undefined
+        if (!this.editPhotos) this.editPhotos = [];
+        if (!this.newEditPhotos) this.newEditPhotos = [];
+        
+        // Фильтруем валидные фото (убираем null, undefined, пустые строки)
+        const validEditPhotos = this.editPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
+        const validNewPhotos = this.newEditPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
+        
+        // Собираем все фото: старые (оставшиеся) + новые
+        const allPhotos = [...validEditPhotos, ...validNewPhotos];
+        
+        const updates = {
+            name: document.getElementById('editProductName').value.trim(),
+            purchase_price: parseFloat(document.getElementById('editPurchasePrice').value) || 0,
+            investment: parseFloat(document.getElementById('editInvestment').value) || 0,
+            category: document.getElementById('editProductCategory').value,
+            description: document.getElementById('editProductDescription').value.trim(),
+            required_parts: document.getElementById('editRequiredParts').value.trim(),
+            photos: allPhotos
+        };
+        
+        // Добавляем статус телефона если это телефон
+        if (updates.category === 'phones') {
+            updates.phone_status = document.getElementById('editPhoneStatus').value;
+        }
+        
+        // Валидация
+        if (!updates.name) {
+            this.showToast('Ошибка', 'Введите название товара', 'error');
+            return;
+        }
+        
+        if (updates.purchase_price <= 0) {
+            this.showToast('Ошибка', 'Введите корректную цену покупки', 'error');
+            return;
+        }
+        
+        console.log('Сохраняем изменения товара:', productId, updates);
+        
+        this.setButtonLoading('saveProductBtn', true);
+        
+        // Обновляем через Supabase
+        const result = await supabaseService.updateProduct(productId, updates);
+        
+        this.setButtonLoading('saveProductBtn', false);
+        
+        if (result.success) {
+            // Если изменились нужные запчасти, добавляем их в список
+            if (updates.required_parts && updates.required_parts !== product.required_parts) {
+                await this.addRequiredPart(updates.required_parts, updates.name);
+            }
+            
+            // Сбрасываем массивы фото после успешного сохранения
+            this.editPhotos = [];
+            this.newEditPhotos = [];
+            
+            this.showToast('Успех', 'Товар успешно обновлен', 'success');
+            this.switchPage('productDetail');
+        } else {
+            this.showToast('Ошибка', result.error, 'error');
+        }
+    }
+
+    // ========== ОБРАБОТКА ФОТО ==========
+
+    compressImage(dataUrl, mimeType, customSettings = null) {
+        return new Promise((resolve, reject) => {
+            const settings = customSettings || this.compressionSettings[this.currentCompression];
+            const maxWidth = settings.maxWidth;
+            const quality = settings.quality;
+            
+            const img = new Image();
+            
+            img.onload = () => {
+                // Показываем прогресс
+                this.showCompressionProgress(true);
+                
+                // Создаем canvas для сжатия
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Рассчитываем новые размеры
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                
+                // Устанавливаем размеры canvas
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Рисуем сжатое изображение
+                const ctx = canvas.getContext('2d');
+                
+                // Улучшаем качество сжатия
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Конвертируем HEIC/HEIF в JPEG если нужно
+                let outputMimeType = mimeType;
+                if (mimeType === 'image/heic' || mimeType === 'image/heif' || mimeType === 'image/heif-sequence') {
+                    outputMimeType = 'image/jpeg';
+                }
+                
+                // Для WebP если браузер поддерживает
+                if (outputMimeType === 'image/jpeg' && this.supportsWebP()) {
+                    outputMimeType = 'image/webp';
+                }
+                
+                // Получаем сжатое изображение
+                try {
+                    const compressedDataUrl = canvas.toDataURL(outputMimeType, quality);
+                    
+                    // Скрываем прогресс
+                    this.showCompressionProgress(false);
+                    
+                    // Обновляем статистику
+                    this.updatePhotoStats(compressedDataUrl, {
+                        originalWidth: img.width,
+                        originalHeight: img.height,
+                        compressedWidth: width,
+                        compressedHeight: height,
+                        quality: quality
+                    });
+                    
+                    resolve(compressedDataUrl);
+                } catch (error) {
+                    this.showCompressionProgress(false);
+                    reject(error);
+                }
+            };
+            
+            img.onerror = (error) => {
+                this.showCompressionProgress(false);
+                reject(error);
+            };
+            
+            img.src = dataUrl;
+        });
     }
     
-    // Добавляем обработчики событий
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.saveProductChanges(product.id);
-    });
-    
-    document.getElementById('cancelEditBtn').addEventListener('click', () => {
-        // Очищаем массивы фото при отмене редактирования
-        this.editPhotos = [];
-        this.newEditPhotos = [];
-        this.switchPage('productDetail');
-    });
-    
-    document.getElementById('deleteProductBtn').addEventListener('click', () => {
-        this.openDeleteModal(product);
-    });
-    
-    // Показываем/скрываем поле статуса телефона
-    document.getElementById('editProductCategory')?.addEventListener('change', (e) => {
-        const phoneStatusGroup = document.getElementById('editPhoneStatusGroup');
-        if (phoneStatusGroup) {
-            phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
+    supportsWebP() {
+        const elem = document.createElement('canvas');
+        if (!!(elem.getContext && elem.getContext('2d'))) {
+            return elem.toDataURL('image/webp').indexOf('data:image/webp') === 0;
         }
-    });
+        return false;
+    }
     
-    // Удаление существующих фото
-    document.querySelectorAll('.remove-photo-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const index = parseInt(btn.dataset.index);
+    showCompressionProgress(show = true) {
+        const progressBar = document.getElementById('compressionProgressBar');
+        const progressContainer = document.getElementById('compressionProgress');
+        
+        if (progressBar && progressContainer) {
+            if (show) {
+                progressContainer.classList.add('active');
+                progressBar.style.width = '0%';
+                setTimeout(() => {
+                    progressBar.style.width = '100%';
+                }, 10);
+            } else {
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                    setTimeout(() => {
+                        progressContainer.classList.remove('active');
+                    }, 300);
+                }, 500);
+            }
+        }
+    }
+    
+    updatePhotoStats(dataUrl, stats) {
+        const statsContainer = document.getElementById('photoStats');
+        if (!statsContainer) return;
+        
+        const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
+        const sizeInBytes = Math.ceil(base64Length * 3 / 4);
+        const sizeInKB = Math.round(sizeInBytes / 1024);
+        
+        statsContainer.innerHTML = `
+            <div class="stat-item">
+                <i class="fas fa-expand-alt"></i>
+                <span>${stats.compressedWidth}×${stats.compressedHeight}</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-weight-hanging"></i>
+                <span>${sizeInKB} KB</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-compress-alt"></i>
+                <span>${Math.round(stats.quality * 100)}%</span>
+            </div>
+        `;
+        
+        statsContainer.style.display = 'flex';
+    }
+
+    async handlePhotoUpload(input) {
+        return new Promise((resolve) => {
+            const files = Array.from(input.files);
+            const photos = [];
             
-            // Проверяем валидность индекса
-            if (isNaN(index) || !this.editPhotos || index < 0 || index >= this.editPhotos.length) {
-                console.error('Неверный индекс фото для удаления:', index);
+            if (files.length === 0) {
+                resolve([]);
                 return;
             }
             
-            // Удаляем фото из массива
-            this.editPhotos.splice(index, 1);
-            
-            // Обновляем форму с обновленными фото
-            this.renderEditForm({...product, photos: this.editPhotos});
-        });
-    });
-    
-    // Добавление новых фото при редактировании
-    document.getElementById('editPhotoInput')?.addEventListener('change', async (e) => {
-        await this.handleEditPhotoUpload(e.target);
-    });
-}
-
-// Новый метод для обработки загрузки фото при редактировании
-// Новый метод для обработки загрузки фото при редактировании
-async handleEditPhotoUpload(input) {
-    try {
-        // Проверяем наличие файлов
-        if (!input || !input.files || input.files.length === 0) {
-            return;
-        }
-        
-        // Показываем индикатор загрузки
-        const progressContainer = document.getElementById('editUploadProgressContainer');
-        const progressBar = document.getElementById('editUploadProgress');
-        const progressText = document.getElementById('editUploadProgressText');
-        
-        if (progressContainer) {
-            progressContainer.style.display = 'block';
-        }
-        if (progressBar) {
-            progressBar.style.width = '0%';
-        }
-        if (progressText) {
-            progressText.textContent = 'Обработка фото...';
-        }
-        
-        // Инициализируем массив если не существует
-        if (!this.newEditPhotos) {
-            this.newEditPhotos = [];
-        }
-        
-        // Загружаем фото
-        const newPhotos = await this.handlePhotoUpload(input);
-        
-        // Проверяем результат
-        if (!newPhotos || newPhotos.length === 0) {
-            if (progressContainer) {
-                progressContainer.style.display = 'none';
+            // Для iOS показываем уведомление о начале обработки
+            if (this.isIOS()) {
+                this.showToast('Инфо', 'Обработка фото...', 'info');
             }
-            this.showToast('Предупреждение', 'Не удалось обработать фото', 'warning');
-            return;
-        }
-        
-        // Добавляем к новым фото для этого редактирования
-        this.newEditPhotos = [...this.newEditPhotos, ...newPhotos];
-        
-        // Показываем превью
-        this.showEditPhotoPreview();
-        
-        // Обновляем индикатор
-        if (progressBar && progressText) {
-            progressBar.style.width = '100%';
-            progressText.textContent = `Загружено ${newPhotos.length} фото`;
             
-            // Скрываем через 2 секунды
-            setTimeout(() => {
+            let processedCount = 0;
+            const totalFiles = files.length;
+            
+            const processFile = async (file, index) => {
+                try {
+                    // Для iOS используем упрощенную обработку
+                    if (this.isIOS()) {
+                        const compressedPhoto = await this.compressImageForIOS(file);
+                        photos[index] = compressedPhoto;
+                    } else {
+                        // Для других устройств обычное сжатие
+                        const compressedPhoto = await this.compressImageFile(file);
+                        photos[index] = compressedPhoto;
+                    }
+                } catch (error) {
+                    console.error('Ошибка обработки файла:', error, file.name);
+                    // Если сжатие не удалось, используем оригинал через FileReader
+                    const originalPhoto = await this.readFileAsDataURL(file);
+                    photos[index] = originalPhoto;
+                } finally {
+                    processedCount++;
+                    
+                    // Обновляем прогресс
+                    this.updateUploadProgress(processedCount, totalFiles);
+                    
+                    // Когда все файлы обработаны
+                    if (processedCount === totalFiles) {
+                        // Фильтруем undefined (если какие-то файлы не удалось обработать)
+                        const result = photos.filter(photo => photo !== undefined);
+                        
+                        if (result.length > 0) {
+                            this.showToast('Успех', `Загружено ${result.length} из ${totalFiles} фото`, 'success');
+                        }
+                        
+                        resolve(result);
+                    }
+                }
+            };
+            
+            // Обрабатываем файлы последовательно для iOS, параллельно для других
+            if (this.isIOS()) {
+                // Для iOS последовательно чтобы не перегружать
+                const processSequentially = async () => {
+                    for (let i = 0; i < files.length; i++) {
+                        await processFile(files[i], i);
+                    }
+                };
+                processSequentially();
+            } else {
+                // Для других устройств параллельно
+                files.forEach((file, index) => {
+                    processFile(file, index);
+                });
+            }
+        });
+    }
+
+    async handleEditPhotoUpload(input) {
+        try {
+            // Проверяем наличие файлов
+            if (!input || !input.files || input.files.length === 0) {
+                return;
+            }
+            
+            // Показываем индикатор загрузки
+            const progressContainer = document.getElementById('editUploadProgressContainer');
+            const progressBar = document.getElementById('editUploadProgress');
+            const progressText = document.getElementById('editUploadProgressText');
+            
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+            }
+            if (progressBar) {
+                progressBar.style.width = '0%';
+            }
+            if (progressText) {
+                progressText.textContent = 'Обработка фото...';
+            }
+            
+            // Инициализируем массив если не существует
+            if (!this.newEditPhotos) {
+                this.newEditPhotos = [];
+            }
+            
+            // Загружаем фото
+            const newPhotos = await this.handlePhotoUpload(input);
+            
+            // Проверяем результат
+            if (!newPhotos || newPhotos.length === 0) {
                 if (progressContainer) {
                     progressContainer.style.display = 'none';
                 }
-            }, 2000);
-        }
-        
-        // Очищаем input чтобы можно было загрузить те же файлы снова
-        input.value = '';
-        
-    } catch (error) {
-        console.error('Ошибка загрузки фото при редактировании:', error);
-        this.showToast('Ошибка', `Не удалось загрузить фото: ${error.message || 'Неизвестная ошибка'}`, 'error');
-        
-        const progressContainer = document.getElementById('editUploadProgressContainer');
-        if (progressContainer) {
-            progressContainer.style.display = 'none';
-        }
-        
-        // Инициализируем массив если произошла ошибка
-        if (!this.newEditPhotos) {
-            this.newEditPhotos = [];
+                this.showToast('Предупреждение', 'Не удалось обработать фото', 'warning');
+                return;
+            }
+            
+            // Добавляем к новым фото для этого редактирования
+            this.newEditPhotos = [...this.newEditPhotos, ...newPhotos];
+            
+            // Показываем превью
+            this.showEditPhotoPreview();
+            
+            // Обновляем индикатор
+            if (progressBar && progressText) {
+                progressBar.style.width = '100%';
+                progressText.textContent = `Загружено ${newPhotos.length} фото`;
+                
+                // Скрываем через 2 секунды
+                setTimeout(() => {
+                    if (progressContainer) {
+                        progressContainer.style.display = 'none';
+                    }
+                }, 2000);
+            }
+            
+            // Очищаем input чтобы можно было загрузить те же файлы снова
+            input.value = '';
+            
+        } catch (error) {
+            console.error('Ошибка загрузки фото при редактировании:', error);
+            this.showToast('Ошибка', `Не удалось загрузить фото: ${error.message || 'Неизвестная ошибка'}`, 'error');
+            
+            const progressContainer = document.getElementById('editUploadProgressContainer');
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+            
+            // Инициализируем массив если произошла ошибка
+            if (!this.newEditPhotos) {
+                this.newEditPhotos = [];
+            }
         }
     }
-}
-    
-    // Отображение страницы статистики
-    renderStatistics() {
-        if (!this.checkAuth()) {
-            this.switchPage('home');
+
+    showEditPhotoPreview() {
+        const previewSection = document.getElementById('editPhotoPreviewSection');
+        const previewContainer = document.getElementById('editPhotoPreview');
+        
+        if (!previewSection || !previewContainer) return;
+        
+        // Используем правильную переменную для новых фото при редактировании
+        if (!this.newEditPhotos || this.newEditPhotos.length === 0) {
+            previewSection.style.display = 'none';
             return;
         }
-
-        const container = document.getElementById('statisticsContainer');
-        if (!container) return;
-
-        // Рассчитываем статистику
-        const stats = this.calculateStatistics();
         
-        container.innerHTML = `
-            <!-- Общая статистика -->
-            <div class="stats-overview">
-                <div class="stat-overview-card">
-                    <div class="stat-overview-icon profit">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="stat-overview-content">
-                        <div class="stat-overview-label">Общая прибыль</div>
-                        <div class="stat-overview-value">${this.formatCurrency(stats.totalProfit)}</div>
-                    </div>
-                </div>
-                <div class="stat-overview-card">
-                    <div class="stat-overview-icon sales">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <div class="stat-overview-content">
-                        <div class="stat-overview-label">Оборот</div>
-                        <div class="stat-overview-value">${this.formatCurrency(stats.totalTurnover)}</div>
-                    </div>
-                </div>
-                <div class="stat-overview-card">
-                    <div class="stat-overview-icon sold">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="stat-overview-content">
-                        <div class="stat-overview-label">Продано товаров</div>
-                        <div class="stat-overview-value">${stats.soldCount}</div>
-                    </div>
-                </div>
-                <div class="stat-overview-card">
-                    <div class="stat-overview-icon stock">
-                        <i class="fas fa-box"></i>
-                    </div>
-                    <div class="stat-overview-content">
-                        <div class="stat-overview-label">В наличии</div>
-                        <div class="stat-overview-value">${stats.inStockCount}</div>
-                    </div>
-                </div>
+        previewSection.style.display = 'block';
+        previewContainer.innerHTML = this.newEditPhotos.map((photo, index) => `
+            <div class="photo-item">
+                <img src="${photo}" alt="Новое фото ${index + 1}">
+                <button type="button" class="remove-photo" data-new-index="${index}">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-
-            <!-- Диаграммы -->
-            <div class="charts-section">
-                <div class="chart-container">
-                    <h3 class="chart-title">Покупки iPhone по неделям (текущий месяц)</h3>
-                    <canvas id="salesChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3 class="chart-title">Распределение по месту покупки</h3>
-                    <canvas id="profitChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3 class="chart-title">Распределение по месту продажи</h3>
-                    <canvas id="categoryChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Таблица продаж -->
-            <div class="table-section">
-                <h3 class="section-title">Последние продажи</h3>
-                <div class="stats-table-container">
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Товар</th>
-                                <th>Категория</th>
-                                <th>Цена покупки</th>
-                                <th>Цена продажи</th>
-                                <th>Прибыль</th>
-                                <th>Дата продажи</th>
-                            </tr>
-                        </thead>
-                        <tbody id="salesTableBody">
-                            <!-- Заполнится динамически -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        // Создаем диаграммы
-        this.createCharts(stats);
+        `).join('');
         
-        // Заполняем таблицу
-        this.fillSalesTable(stats.recentSales);
+        // Добавляем обработчики для удаления новых фото
+        previewContainer.querySelectorAll('.remove-photo').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.newIndex);
+                if (this.newEditPhotos && index >= 0 && index < this.newEditPhotos.length) {
+                    this.newEditPhotos.splice(index, 1);
+                    this.showEditPhotoPreview();
+                }
+            });
+        });
     }
 
-    // Расчет статистики
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
+
+    getCategoryName(category) {
+        const categories = {
+            'phones': 'Телефоны',
+            'accessories': 'Аксессуары',
+            'parts': 'Запчасти'
+        };
+        return categories[category] || category;
+    }
+
+    switchPage(pageName) {
+        console.log('Переключаем страницу на:', pageName);
+        
+        // Скрываем все страницы
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+        
+        // Скрываем поиск если открыт
+        const searchContainer = document.getElementById('searchContainer');
+        if (searchContainer) searchContainer.classList.remove('active');
+        
+        // Скрываем профиль
+        const profileModal = document.getElementById('profileModal');
+        if (profileModal) profileModal.classList.remove('active');
+        
+        // Показываем выбранную страницу
+        const targetPage = document.getElementById(`${pageName}Page`);
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
+        
+        // Обновляем активную навигацию
+        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.page === pageName) {
+                item.classList.add('active');
+            }
+        });
+        
+        // Обновляем текущую страницу
+        this.currentPage = pageName;
+        
+        // Прокручиваем вверх
+        window.scrollTo(0, 0);
+        
+        // Обновляем данные если нужно
+        switch (pageName) {
+            case 'home':
+                this.renderHomePage();
+                break;
+            case 'warehouse':
+                this.updateCategoryCounts();
+                this.renderWarehouse();
+                break;
+            case 'parts':
+                this.renderPartsList();
+                break;
+            case 'statistics':
+                this.renderStatistics();
+                break;
+        }
+    }
+
+    openSellModal(product) {
+        const modal = document.getElementById('sellModal');
+        const sellingPriceInput = document.getElementById('sellingPrice');
+        
+        if (!modal || !sellingPriceInput) return;
+        
+        // Предлагаем цену на 20% выше затрат
+        const totalCost = (product.purchase_price || 0) + (product.investment || 0);
+        const suggestedPrice = Math.round(totalCost * 1.2);
+        sellingPriceInput.value = suggestedPrice;
+        
+        modal.classList.add('active');
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) modalOverlay.classList.add('active');
+        
+        setTimeout(() => {
+            sellingPriceInput.focus();
+            sellingPriceInput.select();
+        }, 100);
+    }
+
+    openDeleteModal(product) {
+        const modal = document.getElementById('deleteModal');
+        const preview = document.getElementById('deletePreview');
+        
+        if (!modal) return;
+        
+        if (preview) {
+            preview.innerHTML = `
+                <h4>${product.name}</h4>
+                <p>Категория: ${this.getCategoryName(product.category)}</p>
+                <p>Статус: ${product.status === 'sold' ? 'Продано' : 'В наличии'}</p>
+                <p>Цена покупки: ${(product.purchase_price || 0).toLocaleString()} ₽</p>
+                <p>Вложения: ${(product.investment || 0).toLocaleString()} ₽</p>
+            `;
+        }
+        
+        modal.classList.add('active');
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) modalOverlay.classList.add('active');
+    }
+
+    openEditForm(product) {
+        this.renderEditForm(product);
+        this.switchPage('editProduct');
+    }
+
+    showToast(title, message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) {
+            console.error('Контейнер toastContainer не найден');
+            return;
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                               type === 'error' ? 'exclamation-circle' : 
+                               type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Автоматическое удаление через 5 секунд
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+        
+        // Кнопка закрытия
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+            toast.remove();
+        });
+    }
+
+    // ========== МЕТОДЫ ЗАГРУЗКИ/ИНДИКАТОРЫ ==========
+
+    showLoading(type = 'global', text = 'Загрузка...') {
+        this.isLoading = true;
+        this.currentLoadingType = type;
+        
+        switch(type) {
+            case 'global':
+                this.showGlobalLoader(text);
+                break;
+            case 'list':
+                this.showListLoader(text);
+                break;
+            case 'modal':
+                this.showModalLoader(text);
+                break;
+        }
+    }
+    
+    hideLoading() {
+        this.isLoading = false;
+        this.currentLoadingType = null;
+        
+        // Глобальный загрузчик
+        const globalLoader = document.getElementById('globalLoader');
+        if (globalLoader) {
+            globalLoader.classList.remove('active');
+        }
+        
+        // Спиннеры в кнопках
+        document.querySelectorAll('.btn.loading').forEach(btn => {
+            btn.classList.remove('loading');
+        });
+        
+        // Модальные загрузчики
+        document.querySelectorAll('.modal-loading').forEach(loader => {
+            loader.classList.remove('active');
+        });
+        
+        // Скрыть скелетоны
+        document.querySelectorAll('.skeleton').forEach(skeleton => {
+            skeleton.style.display = 'none';
+        });
+    }
+    
+    showGlobalLoader(text = 'Загрузка...') {
+        let loader = document.getElementById('globalLoader');
+        
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.className = 'loading-overlay';
+            loader.id = 'globalLoader';
+            loader.innerHTML = `
+                <div class="loader"></div>
+                <div class="loader-text">${text}</div>
+            `;
+            document.body.appendChild(loader);
+        }
+        
+        loader.querySelector('.loader-text').textContent = text;
+        loader.classList.add('active');
+    }
+    
+    showListLoader(text = 'Загрузка...') {
+        // Для главной страницы
+        const recentContainer = document.getElementById('recentProducts');
+        if (recentContainer && this.currentPage === 'home') {
+            recentContainer.innerHTML = `
+                <div class="list-loading">
+                    <div class="loader"></div>
+                    <div class="loader-text">${text}</div>
+                </div>
+            `;
+        }
+        
+        // Для склада
+        const warehouseContainer = document.getElementById('warehouseProducts');
+        if (warehouseContainer && this.currentPage === 'warehouse') {
+            warehouseContainer.innerHTML = `
+                <div class="list-loading">
+                    <div class="loader"></div>
+                    <div class="loader-text">${text}</div>
+                </div>
+            `;
+        }
+        
+        // Для запчастей
+        const partsContainer = document.getElementById('partsList');
+        if (partsContainer && this.currentPage === 'parts') {
+            partsContainer.innerHTML = `
+                <div class="list-loading">
+                    <div class="loader"></div>
+                    <div class="loader-text">${text}</div>
+                </div>
+            `;
+        }
+    }
+    
+    showSkeletons(containerId, count = 3) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        let skeletons = '';
+        for (let i = 0; i < count; i++) {
+            skeletons += `
+                <div class="skeleton skeleton-card"></div>
+                <div class="skeleton skeleton-text"></div>
+                <div class="skeleton skeleton-text"></div>
+                <div class="skeleton skeleton-text"></div>
+            `;
+        }
+        
+        container.innerHTML = skeletons;
+    }
+    
+    setButtonLoading(buttonId, isLoading = true) {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+        
+        if (isLoading) {
+            button.classList.add('loading');
+            button.disabled = true;
+            
+            if (!button.querySelector('.loader-small')) {
+                const loader = document.createElement('div');
+                loader.className = 'loader-small active';
+                button.appendChild(loader);
+            } else {
+                button.querySelector('.loader-small').classList.add('active');
+            }
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+            button.querySelector('.loader-small')?.classList.remove('active');
+        }
+    }
+
+    // ========== СТАТИСТИЧЕСКИЕ МЕТОДЫ ==========
+
     calculateStatistics() {
         const soldProducts = this.products.filter(p => p.status === 'sold');
         const inStockProducts = this.products.filter(p => p.status === 'in-stock');
@@ -1420,30 +2221,30 @@ async handleEditPhotoUpload(input) {
         
         // Общая прибыль
         const totalProfit = soldProducts.reduce((sum, p) => {
-            const purchase = p.purchasePrice || 0;
+            const purchase = p.purchase_price || 0;
             const investment = p.investment || 0;
-            const selling = p.sellingPrice || 0;
+            const selling = p.selling_price || 0;
             return sum + (selling - purchase - investment);
         }, 0);
         
         // Общий оборот
-        const totalTurnover = soldProducts.reduce((sum, p) => sum + (p.sellingPrice || 0), 0);
+        const totalTurnover = soldProducts.reduce((sum, p) => sum + (p.selling_price || 0), 0);
         
         // Статистика покупок iPhone по неделям текущего месяца
         const weeklyPhonePurchases = this.getWeeklyPhonePurchases(phoneProducts);
         
         // Распределение по месту покупки
-        const purchaseSourceStats = this.getSourceStats(this.products, 'purchaseSource');
+        const purchaseSourceStats = this.getSourceStats(this.products, 'purchase_source');
         
         // Распределение по месту продажи (только проданные)
-        const saleSourceStats = this.getSourceStats(soldProducts, 'saleSource');
+        const saleSourceStats = this.getSourceStats(soldProducts, 'sale_source');
         
         // Последние продажи
         const recentSales = soldProducts
-            .filter(p => p.soldAt)
+            .filter(p => p.sold_at)
             .sort((a, b) => {
-                const dateA = a.soldAt?.toDate ? a.soldAt.toDate() : new Date(a.soldAt);
-                const dateB = b.soldAt?.toDate ? b.soldAt.toDate() : new Date(b.soldAt);
+                const dateA = new Date(a.sold_at);
+                const dateB = new Date(b.sold_at);
                 return dateB - dateA;
             })
             .slice(0, 20);
@@ -1460,22 +2261,21 @@ async handleEditPhotoUpload(input) {
         };
     }
 
-    // Статистика покупок iPhone по неделям текущего месяца
     getWeeklyPhonePurchases(products) {
         const now = new Date();
         const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-11
+        const currentMonth = now.getMonth();
         
         // 4 недели + возможная 5-я
         const weeks = [0, 0, 0, 0, 0];
         
         products.forEach(product => {
-            const created = product.createdAt?.toDate ? product.createdAt.toDate() : new Date(product.createdAt);
+            const created = new Date(product.created_at);
             if (!created || isNaN(created.getTime())) return;
             if (created.getFullYear() !== currentYear || created.getMonth() !== currentMonth) return;
             
-            const day = created.getDate(); // 1-31
-            let weekIndex = Math.floor((day - 1) / 7); // 0..4
+            const day = created.getDate();
+            let weekIndex = Math.floor((day - 1) / 7);
             if (weekIndex < 0) weekIndex = 0;
             if (weekIndex > 4) weekIndex = 4;
             weeks[weekIndex] += 1;
@@ -1489,15 +2289,13 @@ async handleEditPhotoUpload(input) {
         };
     }
 
-    // Универсальная статистика по источникам (место покупки / продажи)
     getSourceStats(products, field) {
         const stats = {};
         
         products.forEach(product => {
             let value = product[field] || 'unknown';
             // Нормализуем значения
-            if (field === 'purchaseSource') {
-                // старые товары без значения будут считаться 'unknown'
+            if (field === 'purchase_source') {
                 const map = {
                     avito_lenta: 'Авито лента',
                     avito_skupka: 'Авито скупка',
@@ -1506,7 +2304,7 @@ async handleEditPhotoUpload(input) {
                     unknown: 'Не указано'
                 };
                 stats[map[value] || map.unknown] = (stats[map[value] || map.unknown] || 0) + 1;
-            } else if (field === 'saleSource') {
+            } else if (field === 'sale_source') {
                 const map = {
                     avito: 'Авито',
                     vk: 'ВК',
@@ -1520,7 +2318,6 @@ async handleEditPhotoUpload(input) {
         return stats;
     }
 
-    // Создание диаграмм
     createCharts(stats) {
         // Диаграмма покупок iPhone по неделям
         const salesCtx = document.getElementById('salesChart');
@@ -1632,7 +2429,6 @@ async handleEditPhotoUpload(input) {
         }
     }
 
-    // Заполнение таблицы продаж
     fillSalesTable(sales) {
         const tbody = document.getElementById('salesTableBody');
         if (!tbody) return;
@@ -1656,12 +2452,12 @@ async handleEditPhotoUpload(input) {
         };
         
         tbody.innerHTML = sales.map(product => {
-            const purchase = product.purchasePrice || 0;
+            const purchase = product.purchase_price || 0;
             const investment = product.investment || 0;
-            const selling = product.sellingPrice || 0;
+            const selling = product.selling_price || 0;
             const profit = selling - purchase - investment;
             
-            const soldDate = product.soldAt?.toDate ? product.soldAt.toDate() : new Date(product.soldAt);
+            const soldDate = new Date(product.sold_at);
             const dateStr = soldDate && !isNaN(soldDate.getTime()) 
                 ? soldDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
                 : '-';
@@ -1679,889 +2475,126 @@ async handleEditPhotoUpload(input) {
         }).join('');
     }
 
-    // Форматирование валюты
     formatCurrency(amount) {
         return new Intl.NumberFormat('ru-RU', {
             style: 'currency',
             currency: 'RUB',
             minimumFractionDigits: 0
         }).format(amount || 0);
-}
-    
-    // Отображение списка запчастей
-    renderPartsList() {
-        console.log('Рендерим список запчастей');
-        
-        let userParts = this.requiredParts;
-        const container = document.getElementById('partsList');
-        
-        if (!container) {
-            console.error('Контейнер partsList не найден');
-            return;
-        }
-        
-        // Если идет загрузка, показываем скелетоны
-        if (this.isLoading && this.currentLoadingType === 'list') {
-            this.showSkeletons('partsList', 3);
-            return;
-        }
-        
-        if (userParts.length === 0) {
-            container.innerHTML = `
-                <div class="empty-parts">
-                    <i class="fas fa-wrench"></i>
-                    <p>${this.currentUser ? 'Нет добавленных запчастей' : 'Войдите в аккаунт для просмотра запчастей'}</p>
-                    ${this.currentUser ? `
-                        <p class="parts-hint">Добавьте запчасти при создании товара или вручную здесь</p>
-                    ` : `
-                        <button class="btn btn-primary" id="loginFromParts">
-                            <i class="fas fa-sign-in-alt"></i> Войти в аккаунт
-                        </button>
-                    `}
-                </div>
-            `;
-            
-            if (!this.currentUser) {
-                document.getElementById('loginFromParts')?.addEventListener('click', () => {
-                    this.openAuthModal();
-                });
-            }
-        } else {
-            container.innerHTML = userParts.map(part => `
-                <div class="part-item" data-part-id="${part.id}">
-                    <div class="part-item-content">
-                        <div class="part-item-name">${part.name}</div>
-                        <div class="part-item-info">
-                            ${part.product ? `Из товара: ${part.product}` : 'Добавлено вручную'} • 
-                            ${part.createdAt?.toDate ? 
-                                part.createdAt.toDate().toLocaleDateString('ru-RU') : 
-                                new Date(part.createdAt).toLocaleDateString('ru-RU')}
-                        </div>
-                    </div>
-                    <div class="part-item-actions">
-                        <button class="part-item-btn delete" onclick="app.removePart('${part.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
     }
-    
-    // ========== МЕТОДЫ ДЛЯ РАБОТЫ С FIREBASE ==========
-    
-    // Добавление нового товара
-    async addNewProduct(formData) {
-        if (this._addingProduct) {
-            console.log('Добавление товара уже выполняется — пропуск повторного вызова');
-            return;
-        }
 
-        if (!this.checkAuth()) return;
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ФОТО ==========
 
-        this._addingProduct = true;
-        this.setButtonLoading('addProductSubmit', true);
-
-        try {
-            console.log('Добавляем новый товар:', formData);
-
-            const newProduct = {
-                name: formData.name,
-                description: formData.description,
-                purchasePrice: formData.purchasePrice,
-                investment: formData.investment || 0,
-                sellingPrice: null,
-                category: formData.category,
-                phoneStatus: formData.category === 'phones' ? formData.phoneStatus : null,
-                purchaseSource: formData.purchaseSource || null,
-                status: 'in-stock',
-                soldAt: null,
-                saleSource: null,
-                photos: formData.photos || [],
-                requiredParts: formData.requiredParts || '',
-                changeHistory: []
-            };
-
-            const result = await firebaseService.addProduct(newProduct);
-
-            if (result.success) {
-                if (formData.requiredParts && formData.requiredParts.trim() !== '') {
-                    await this.addRequiredPart(formData.requiredParts, newProduct.name);
-                }
-
-                this.showToast('Успех', 'Товар успешно добавлен', 'success');
-
-                // Жёстко гарантируем переход на главную
-                setTimeout(() => {
-                    this.switchPage('home');
-                }, 0);
-
-            } else {
-                this.showToast('Ошибка', result.error, 'error');
-            }
-        } finally {
-            this._addingProduct = false;
-            this.setButtonLoading('addProductSubmit', false);
-        }
-    }
-    
-    // Сохранение изменений товара
-   // Сохранение изменений товара
-// Сохранение изменений товара
-async saveProductChanges(productId) {
-    if (!this.checkAuth()) return;
-    
-    const product = this.products.find(p => p.id === productId);
-    if (!product) {
-        this.showToast('Ошибка', 'Товар не найден', 'error');
-        return;
-    }
-    
-    // Инициализируем массивы если они undefined
-    if (!this.editPhotos) this.editPhotos = [];
-    if (!this.newEditPhotos) this.newEditPhotos = [];
-    
-    // Фильтруем валидные фото (убираем null, undefined, пустые строки)
-    const validEditPhotos = this.editPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
-    const validNewPhotos = this.newEditPhotos.filter(photo => photo && typeof photo === 'string' && photo.trim() !== '');
-    
-    // Собираем все фото: старые (оставшиеся) + новые
-    const allPhotos = [...validEditPhotos, ...validNewPhotos];
-    
-    const updates = {
-        name: document.getElementById('editProductName').value.trim(),
-        purchasePrice: parseInt(document.getElementById('editPurchasePrice').value) || 0,
-        investment: parseInt(document.getElementById('editInvestment').value) || 0,
-        category: document.getElementById('editProductCategory').value,
-        description: document.getElementById('editProductDescription').value.trim(),
-        requiredParts: document.getElementById('editRequiredParts').value.trim(),
-        photos: allPhotos
-    };
-    
-    // Добавляем статус телефона если это телефон
-    if (updates.category === 'phones') {
-        updates.phoneStatus = document.getElementById('editPhoneStatus').value;
-    }
-    
-    // Валидация
-    if (!updates.name) {
-        this.showToast('Ошибка', 'Введите название товара', 'error');
-        return;
-    }
-    
-    if (updates.purchasePrice <= 0) {
-        this.showToast('Ошибка', 'Введите корректную цену покупки', 'error');
-        return;
-    }
-    
-    console.log('Сохраняем изменения товара:', productId, updates);
-    
-    this.setButtonLoading('saveProductBtn', true);
-    
-    // Обновляем через Firebase
-    const result = await firebaseService.updateProduct(productId, updates);
-    
-    this.setButtonLoading('saveProductBtn', false);
-    
-    if (result.success) {
-        // Если изменились нужные запчасти, добавляем их в список
-        if (updates.requiredParts && updates.requiredParts !== product.requiredParts) {
-            await this.addRequiredPart(updates.requiredParts, updates.name);
-        }
-        
-        // Сбрасываем массивы фото после успешного сохранения
-        this.editPhotos = [];
-        this.newEditPhotos = [];
-        
-        this.showToast('Успех', 'Товар успешно обновлен', 'success');
-        this.switchPage('productDetail');
-    } else {
-        this.showToast('Ошибка', result.error, 'error');
-    }
-}
-    
-    // Удаление товара
-    async deleteProduct(productId) {
-        if (!this.checkAuth()) return;
-        
-        this.setButtonLoading('confirmDeleteBtn', true);
-        
-        const result = await firebaseService.deleteProduct(productId);
-        
-        this.setButtonLoading('confirmDeleteBtn', false);
-        
-        if (result.success) {
-            this.showToast('Успех', 'Товар успешно удален', 'success');
-            this.switchPage('warehouse');
-        } else {
-            this.showToast('Ошибка', result.error, 'error');
-        }
-    }
-    
-    // Продажа товара
-    async sellProduct(productId, sellingPrice, notes = '', saleSource = null) {
-        if (!this.checkAuth()) return;
-        
-        const product = this.products.find(p => p.id === productId);
-        if (!product) {
-            this.showToast('Ошибка', 'Товар не найден', 'error');
-            return;
-        }
-        
-        const updates = {
-            status: 'sold',
-            sellingPrice: sellingPrice,
-            soldAt: new Date().toISOString(),
-            saleNotes: notes,
-            saleSource: saleSource || null
-        };
-        
-        console.log('Продаем товар:', productId, updates);
-        
-        this.setButtonLoading('confirmSellBtn', true);
-        
-        const result = await firebaseService.updateProduct(productId, updates);
-        
-        this.setButtonLoading('confirmSellBtn', false);
-        
-        if (result.success) {
-            // Закрываем модальное окно
-            const sellModal = document.getElementById('sellModal');
-            const modalOverlay = document.getElementById('modalOverlay');
-            if (sellModal) sellModal.classList.remove('active');
-            if (modalOverlay) modalOverlay.classList.remove('active');
-            
-            // Очищаем форму
-            document.getElementById('sellingPrice').value = '';
-            document.getElementById('saleNotes').value = '';
-            const saleSourceSelect = document.getElementById('saleSource');
-            if (saleSourceSelect) saleSourceSelect.value = 'avito';
-            
-            this.showToast('Успех', 'Товар успешно продан', 'success');
-            this.switchPage('home');
-        } else {
-            this.showToast('Ошибка', result.error, 'error');
-        }
-    }
-    
-    // Добавление запчасти
-    async addRequiredPart(partDescription, productName = '') {
-        if (!this.checkAuth()) return;
-        
-        const partsArray = partDescription.split(',').map(part => part.trim()).filter(part => part !== '');
-        
-        console.log('Добавляем запчасти:', partsArray);
-        
-        for (const partName of partsArray) {
-            const existingPart = this.requiredParts.find(p => 
-                p.name.toLowerCase() === partName.toLowerCase()
-            );
-            
-            if (!existingPart) {
-                const partData = {
-                    name: partName,
-                    product: productName || 'Вручную добавлено',
-                    source: productName ? 'product' : 'manual'
-                };
-                
-                await firebaseService.addPart(partData);
-            }
-        }
-        
-        return this.requiredParts;
-    }
-    
-    // Удаление запчасти
-    async removeRequiredPart(partId) {
-        if (!this.checkAuth()) return false;
-        
-        console.log('Удаляем запчасть:', partId);
-        
-        const result = await firebaseService.deletePart(partId);
-        return result.success;
-    }
-    
-    // Метод для удаления запчасти (публичный для использования в onclick)
-    async removePart(partId) {
-        const partItem = document.querySelector(`.part-item[data-part-id="${partId}"]`);
-        if (partItem) {
-            partItem.style.opacity = '0.5';
-            partItem.style.pointerEvents = 'none';
-        }
-        
-        const success = await this.removeRequiredPart(partId);
-        
-        if (success) {
-            this.renderPartsList();
-            this.showToast('Успех', 'Запчасть удалена', 'success');
-        } else {
-            if (partItem) {
-                partItem.style.opacity = '1';
-                partItem.style.pointerEvents = 'auto';
-            }
-            this.showToast('Ошибка', 'Не удалось удалить запчасть', 'error');
-        }
-    }
-    
-    // Обновление профиля пользователя
-    updateUserProfile(user) {
-        this.currentUser = user;
-        
-        if (user) {
-            localStorage.setItem('iphoneTraderUser', JSON.stringify(user));
-            
-            const profileHeader = document.getElementById('profileHeader');
-            if (profileHeader) {
-                profileHeader.innerHTML = `
-                    <div class="profile-avatar">
-                        ${user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <div class="profile-name">${user.name || 'Пользователь'}</div>
-                    <div class="profile-email">${user.email || ''}</div>
-                `;
-            }
-            
-            document.getElementById('logoutBtn').style.display = 'flex';
-        } else {
-            localStorage.removeItem('iphoneTraderUser');
-            
-            const profileHeader = document.getElementById('profileHeader');
-            if (profileHeader) {
-                profileHeader.innerHTML = `
-                    <div class="profile-avatar">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="profile-name">Гость</div>
-                    <div class="profile-email">Войдите в аккаунт</div>
-                `;
-            }
-            
-            document.getElementById('logoutBtn').style.display = 'none';
-        }
-    }
-    
-    // Выход из системы
-    async logout() {
-        const result = await firebaseService.logout();
-        
-        if (result.success) {
-            // Отписываемся от обновлений
-            if (this.productsUnsubscribe) {
-                this.productsUnsubscribe();
-                this.productsUnsubscribe = null;
-            }
-            if (this.partsUnsubscribe) {
-                this.partsUnsubscribe();
-                this.partsUnsubscribe = null;
-            }
-            
-            this.currentUser = null;
-            this.products = [];
-            this.requiredParts = [];
-            
-            document.getElementById('profileModal').classList.remove('active');
-            this.updateUserProfile(null);
-            
-            // Обновляем отображение
-            this.updateStats();
-            this.updateCategoryCounts();
-            this.renderHomePage();
-            this.renderWarehouse();
-            
-            this.showToast('Успех', 'Вы вышли из системы', 'success');
-            this.openAuthModal();
-        }
-    }
-    
-    // ========== АВТОРИЗАЦИЯ ==========
-    
-    // Обработка входа
-    async handleLogin() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        
-        if (!email || !password) {
-            this.showToast('Ошибка', 'Заполните все поля', 'error');
-            return;
-        }
-        
-        console.log('Попытка входа:', email);
-        
-        this.setButtonLoading('loginSubmit', true);
-        
-        const result = await firebaseService.login(email, password);
-        
-        this.setButtonLoading('loginSubmit', false);
-        
-        if (result.success) {
-            // Сохраняем пользователя
-            this.currentUser = result.user;
-            this.updateUserProfile(this.currentUser);
-            
-            // Загружаем данные
-            this.showLoading('global', 'Загрузка данных...');
-            await this.loadUserData();
-            
-            // Закрываем модальное окно
-            this.closeAuthModal();
-            
-            this.showToast('Успех', 'Вы успешно вошли в систему', 'success');
-            
-            // Сбрасываем форму
-            document.getElementById('loginForm').reset();
-        } else {
-            this.showToast('Ошибка', result.error, 'error');
-        }
-    }
-    
-    // Обработка регистрации
-    async handleRegister() {
-        const name = document.getElementById('registerName').value.trim();
-        const email = document.getElementById('registerEmail').value.trim();
-        const password = document.getElementById('registerPassword').value;
-        const confirmPassword = document.getElementById('registerConfirmPassword').value;
-        
-        // Валидация
-        if (!name || !email || !password || !confirmPassword) {
-            this.showToast('Ошибка', 'Заполните все поля', 'error');
-            return;
-        }
-        
-        if (password.length < 6) {
-            this.showToast('Ошибка', 'Пароль должен быть не менее 6 символов', 'error');
-            return;
-        }
-        
-        if (password !== confirmPassword) {
-            this.showToast('Ошибка', 'Пароли не совпадают', 'error');
-            return;
-        }
-        
-        // Простая валидация email
-        if (!email.includes('@') || !email.includes('.')) {
-            this.showToast('Ошибка', 'Введите корректный email', 'error');
-            return;
-        }
-        
-        console.log('Попытка регистрации:', email);
-        
-        this.setButtonLoading('registerSubmit', true);
-        
-        const result = await firebaseService.register(email, password, name);
-        
-        this.setButtonLoading('registerSubmit', false);
-        
-        if (result.success) {
-            // Автоматически логиним пользователя
-            this.currentUser = result.user;
-            this.updateUserProfile(this.currentUser);
-            
-            // Закрываем модальное окно
-            this.closeAuthModal();
-            
-            // Обновляем отображение
-            this.showLoading('global', 'Инициализация аккаунта...');
-            await this.loadUserData();
-            
-            this.showToast('Успех', 'Регистрация прошла успешно', 'success');
-            
-            // Сбрасываем форму
-            document.getElementById('registerForm').reset();
-        } else {
-            this.showToast('Ошибка', result.error, 'error');
-        }
-    }
-    
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
-    
-    // Получение названия категории
-    getCategoryName(category) {
-        const categories = {
-            'phones': 'Телефоны',
-            'accessories': 'Аксессуары',
-            'parts': 'Запчасти'
-        };
-        return categories[category] || category;
-    }
-    
-    // Переключение страниц
-    switchPage(pageName) {
-        console.log('Переключаем страницу на:', pageName);
-        
-        // Скрываем все страницы
-        document.querySelectorAll('.page').forEach(page => {
-            page.classList.remove('active');
-        });
-        
-        // Скрываем поиск если открыт
-        document.getElementById('searchContainer')?.classList.remove('active');
-        
-        // Скрываем профиль
-        document.getElementById('profileModal')?.classList.remove('active');
-        
-        // Показываем выбранную страницу
-        const targetPage = document.getElementById(`${pageName}Page`);
-        if (targetPage) {
-            targetPage.classList.add('active');
-        }
-        
-        // Обновляем активную навигацию
-        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
-            item.classList.remove('active');
-            if (item.dataset.page === pageName) {
-                item.classList.add('active');
-            }
-        });
-        
-        // Обновляем текущую страницу
-        this.currentPage = pageName;
-        
-        // Прокручиваем вверх
-        window.scrollTo(0, 0);
-        
-        // Обновляем данные если нужно
-        switch (pageName) {
-            case 'home':
-                this.renderHomePage();
-                break;
-            case 'warehouse':
-                this.updateCategoryCounts();
-                this.renderWarehouse();
-                break;
-            case 'parts':
-                this.renderPartsList();
-                break;
-            case 'statistics':
-                this.renderStatistics();
-                break;
-        }
-    }
-    
-    // Открытие модального окна продажи
-    openSellModal(product) {
-        const modal = document.getElementById('sellModal');
-        const sellingPriceInput = document.getElementById('sellingPrice');
-        
-        // Предлагаем цену на 20% выше затрат
-        const totalCost = (product.purchasePrice || 0) + (product.investment || 0);
-        const suggestedPrice = Math.round(totalCost * 1.2);
-        sellingPriceInput.value = suggestedPrice;
-        
-        modal.classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-        
-        setTimeout(() => {
-            sellingPriceInput.focus();
-            sellingPriceInput.select();
-        }, 100);
-    }
-    
-    // Открытие модального окна удаления
-    openDeleteModal(product) {
-        const modal = document.getElementById('deleteModal');
-        const preview = document.getElementById('deletePreview');
-        
-        if (preview) {
-            preview.innerHTML = `
-                <h4>${product.name}</h4>
-                <p>Категория: ${this.getCategoryName(product.category)}</p>
-                <p>Статус: ${product.status === 'sold' ? 'Продано' : 'В наличии'}</p>
-                <p>Цена покупки: ${(product.purchasePrice || 0).toLocaleString()} ₽</p>
-                <p>Вложения: ${(product.investment || 0).toLocaleString()} ₽</p>
-            `;
-        }
-        
-        modal.classList.add('active');
-        document.getElementById('modalOverlay').classList.add('active');
-    }
-    
-    // Открытие формы редактирования
-    openEditForm(product) {
-        this.renderEditForm(product);
-        this.switchPage('editProduct');
-    }
-    
-    // Показ уведомлений
-    showToast(title, message, type = 'info') {
-        const container = document.getElementById('toastContainer');
-        if (!container) {
-            console.error('Контейнер toastContainer не найден');
-            return;
-        }
-        
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 
-                               type === 'error' ? 'exclamation-circle' : 
-                               type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-            <button class="toast-close">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        
-        container.appendChild(toast);
-        
-        // Автоматическое удаление через 5 секунд
-        setTimeout(() => {
-            toast.remove();
-        }, 5000);
-        
-        // Кнопка закрытия
-        toast.querySelector('.toast-close').addEventListener('click', () => {
-            toast.remove();
+    readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
         });
     }
-    
-    // Обработка загрузки фото
-    handlePhotoUpload(input) {
+
+    compressImageForIOS(file) {
         return new Promise((resolve) => {
-            const files = Array.from(input.files);
-            const photos = [];
+            const reader = new FileReader();
             
-            if (files.length === 0) {
-                resolve([]);
-                return;
-            }
-            
-            // Для iOS показываем уведомление о начале обработки
-            if (this.isIOS()) {
-                this.showToast('Инфо', 'Обработка фото...', 'info');
-            }
-            
-            let processedCount = 0;
-            const totalFiles = files.length;
-            
-            const processFile = async (file, index) => {
-                try {
-                    // Для iOS используем упрощенную обработку
-                    if (this.isIOS()) {
-                        const compressedPhoto = await this.compressImageForIOS(file);
-                        photos[index] = compressedPhoto;
-                    } else {
-                        // Для других устройств обычное сжатие
-                        const compressedPhoto = await this.compressImageFile(file);
-                        photos[index] = compressedPhoto;
-                    }
-                } catch (error) {
-                    console.error('Ошибка обработки файла:', error, file.name);
-                    // Если сжатие не удалось, используем оригинал через FileReader
-                    const originalPhoto = await this.readFileAsDataURL(file);
-                    photos[index] = originalPhoto;
-                } finally {
-                    processedCount++;
+            reader.onload = (e) => {
+                const img = new Image();
+                
+                img.onload = () => {
+                    // Для iOS ограничиваем максимальный размер
+                    const maxSize = 1024;
+                    let width = img.width;
+                    let height = img.height;
                     
-                    // Обновляем прогресс
-                    this.updateUploadProgress(processedCount, totalFiles);
-                    
-                    // Когда все файлы обработаны
-                    if (processedCount === totalFiles) {
-                        // Фильтруем undefined (если какие-то файлы не удалось обработать)
-                        const result = photos.filter(photo => photo !== undefined);
-                        
-                        if (result.length > 0) {
-                            this.showToast('Успех', `Загружено ${result.length} из ${totalFiles} фото`, 'success');
+                    if (width > maxSize || height > maxSize) {
+                        if (width > height) {
+                            height = Math.round((height * maxSize) / width);
+                            width = maxSize;
+                        } else {
+                            width = Math.round((width * maxSize) / height);
+                            height = maxSize;
                         }
+                    }
+                    
+                    // Создаем canvas только если нужно изменить размер
+                    if (width !== img.width || height !== img.height) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
                         
-                        resolve(result);
-                    }
-                }
-            };
-            
-            // Обрабатываем файлы последовательно для iOS, параллельно для других
-            if (this.isIOS()) {
-                // Для iOS последовательно чтобы не перегружать
-                const processSequentially = async () => {
-                    for (let i = 0; i < files.length; i++) {
-                        await processFile(files[i], i);
-                    }
-                };
-                processSequentially();
-            } else {
-                // Для других устройств параллельно
-                files.forEach((file, index) => {
-                    processFile(file, index);
-                });
-            }
-        });
-    }
-    
-// Новый метод для чтения файла как DataURL
-readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(file);
-    });
-}
-
-// Специальный метод сжатия для iOS
-async compressImageForIOS(file) {
-    // Для iOS используем библиотеку или простой метод
-    if (typeof imageCompression !== 'undefined') {
-        return this.compressWithLibrary(file);
-    } else {
-        return this.simpleCompressForIOS(file);
-    }
-}
-
-// Простое сжатие для iOS (без Canvas если проблемы)
-simpleCompressForIOS(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            const img = new Image();
-            
-            img.onload = () => {
-                // Для iOS ограничиваем максимальный размер
-                const maxSize = 1024; // Максимум 1024px
-                let width = img.width;
-                let height = img.height;
-                
-                if (width > maxSize || height > maxSize) {
-                    if (width > height) {
-                        height = Math.round((height * maxSize) / width);
-                        width = maxSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Для iOS используем JPEG с качеством 0.8
+                        try {
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                            resolve(compressedDataUrl);
+                        } catch (error) {
+                            // Если canvas не работает, возвращаем оригинал
+                            resolve(e.target.result);
+                        }
                     } else {
-                        width = Math.round((width * maxSize) / height);
-                        height = maxSize;
-                    }
-                }
-                
-                // Создаем canvas только если нужно изменить размер
-                if (width !== img.width || height !== img.height) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Для iOS используем JPEG с качеством 0.8
-                    try {
-                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                        resolve(compressedDataUrl);
-                    } catch (error) {
-                        // Если canvas не работает, возвращаем оригинал
+                        // Если размер и так маленький, возвращаем оригинал
                         resolve(e.target.result);
                     }
-                } else {
-                    // Если размер и так маленький, возвращаем оригинал
+                };
+                
+                img.onerror = () => {
+                    // Если не удалось загрузить изображение, возвращаем оригинал
                     resolve(e.target.result);
-                }
+                };
+                
+                img.src = e.target.result;
             };
             
-            img.onerror = () => {
-                // Если не удалось загрузить изображение, возвращаем оригинал
-                resolve(e.target.result);
+            reader.onerror = () => {
+                // В случае ошибки чтения, пробуем еще раз с простым чтением
+                const fallbackReader = new FileReader();
+                fallbackReader.onload = (e2) => resolve(e2.target.result);
+                fallbackReader.readAsDataURL(file);
             };
             
-            img.src = e.target.result;
-        };
-        
-        reader.onerror = () => {
-            // В случае ошибки чтения, пробуем еще раз с простым чтением
-            const fallbackReader = new FileReader();
-            fallbackReader.onload = (e2) => resolve(e2.target.result);
-            fallbackReader.readAsDataURL(file);
-        };
-        
-        reader.readAsDataURL(file);
-    });
-}
-
-// Определение iOS устройства
-isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-// Обновление прогресса загрузки
-updateUploadProgress(current, total) {
-    // Обновляем прогресс для обычной загрузки
-    const progressElement = document.getElementById('uploadProgress');
-    if (progressElement) {
-        const percent = Math.round((current / total) * 100);
-        progressElement.style.width = `${percent}%`;
-        progressElement.textContent = `${current}/${total}`;
+            reader.readAsDataURL(file);
+        });
     }
-    
-    // Обновляем прогресс для редактирования
-    const editProgressBar = document.getElementById('editUploadProgress');
-    const editProgressText = document.getElementById('editUploadProgressText');
-    if (editProgressBar && editProgressText) {
-        const percent = Math.round((current / total) * 100);
-        editProgressBar.style.width = `${percent}%`;
-        editProgressText.textContent = `Обработка фото: ${current} из ${total}`;
-    }
-}
-    // Новый метод для сжатия изображений
-    compressImage(dataUrl, mimeType, maxWidth = 1200, quality = 0.7) {
+
+    compressImageFile(file) {
         return new Promise((resolve, reject) => {
-            const img = new Image();
-            
-            img.onload = () => {
-                // Создаем canvas для сжатия
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                
-                // Рассчитываем новые размеры
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-                
-                // Устанавливаем размеры canvas
-                canvas.width = width;
-                canvas.height = height;
-                
-                // Рисуем сжатое изображение
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                // Конвертируем HEIC/HEIF в JPEG если нужно
-                let outputMimeType = mimeType;
-                if (mimeType === 'image/heic' || mimeType === 'image/heif') {
-                    outputMimeType = 'image/jpeg';
-                    this.showToast('Инфо', 'HEIC фото конвертировано в JPEG', 'info');
-                }
-                
-                // Получаем сжатое изображение
+            const reader = new FileReader();
+            reader.onload = async (e) => {
                 try {
-                    const compressedDataUrl = canvas.toDataURL(outputMimeType, quality);
-                    
-                    // Проверяем размер после сжатия
-                    const base64Length = compressedDataUrl.length - (compressedDataUrl.indexOf(',') + 1);
-                    const sizeInBytes = Math.ceil(base64Length * 3 / 4);
-                    const sizeInMB = sizeInBytes / 1024 / 1024;
-                    
-                    console.log(`Сжато: ${Math.round(sizeInMB * 100) / 100}MB`);
-                    
-                    if (sizeInMB > 2) {
-                        // Если все еще слишком большой, сжимаем сильнее
-                        this.compressImage(compressedDataUrl, outputMimeType, maxWidth * 0.8, quality * 0.7)
-                            .then(moreCompressed => resolve(moreCompressed))
-                            .catch(err => reject(err));
-                    } else {
-                        resolve(compressedDataUrl);
-                    }
+                    const mimeType = file.type || 'image/jpeg';
+                    const compressed = await this.compressImage(e.target.result, mimeType);
+                    resolve(compressed);
                 } catch (error) {
                     reject(error);
                 }
             };
-            
-            img.onerror = reject;
-            img.src = dataUrl;
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
     }
-    
-    // Показ предпросмотра фото при добавлении товара
+
+    updateUploadProgress(current, total) {
+        // Обновляем прогресс для обычной загрузки
+        const progressElement = document.getElementById('uploadProgress');
+        if (progressElement) {
+            const percent = Math.round((current / total) * 100);
+            progressElement.style.width = `${percent}%`;
+            progressElement.textContent = `${current}/${total}`;
+        }
+        
+        // Обновляем прогресс для редактирования
+        const editProgressBar = document.getElementById('editUploadProgress');
+        const editProgressText = document.getElementById('editUploadProgressText');
+        if (editProgressBar && editProgressText) {
+            const percent = Math.round((current / total) * 100);
+            editProgressBar.style.width = `${percent}%`;
+            editProgressText.textContent = `Обработка фото: ${current} из ${total}`;
+        }
+    }
+
     showPhotoPreview(photos) {
         const previewSection = document.getElementById('photoPreviewSection');
         const previewContainer = document.getElementById('photoPreview');
@@ -2592,119 +2625,9 @@ updateUploadProgress(current, total) {
             });
         });
     }
-    
-    // Показ предпросмотра новых фото при редактировании
-    showEditPhotoPreview() {
-        const previewSection = document.getElementById('editPhotoPreviewSection');
-        const previewContainer = document.getElementById('editPhotoPreview');
-        
-        if (!previewSection || !previewContainer) return;
-        
-        // Используем правильную переменную для новых фото при редактировании
-        if (!this.newEditPhotos || this.newEditPhotos.length === 0) {
-            previewSection.style.display = 'none';
-            return;
-        }
-        
-        previewSection.style.display = 'block';
-        previewContainer.innerHTML = this.newEditPhotos.map((photo, index) => `
-            <div class="photo-item">
-                <img src="${photo}" alt="Новое фото ${index + 1}">
-                <button type="button" class="remove-photo" data-new-index="${index}">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `).join('');
-        
-        // Добавляем обработчики для удаления новых фото
-        previewContainer.querySelectorAll('.remove-photo').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const index = parseInt(btn.dataset.newIndex);
-                if (this.newEditPhotos && index >= 0 && index < this.newEditPhotos.length) {
-                    this.newEditPhotos.splice(index, 1);
-                this.showEditPhotoPreview();
-                }
-            });
-        });
-    }
-    
-    // Инициализация просмотра фото
-    initPhotoViewers() {
-        // Обработчик для основной фотографии
-        const mainPhoto = document.querySelector('.product-detail-image');
-        if (mainPhoto && mainPhoto.dataset.photoIndex !== undefined) {
-            mainPhoto.addEventListener('click', () => {
-                this.openFullscreenPhoto(parseInt(mainPhoto.dataset.photoIndex));
-            });
-        }
-        
-        // Обработчики для миниатюр
-        document.querySelectorAll('.photo-thumbnail').forEach(thumbnail => {
-            thumbnail.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const photoIndex = parseInt(thumbnail.dataset.photoIndex);
-                this.openFullscreenPhoto(photoIndex);
-            });
-        });
-    }
-    
-    // Открытие фото в полноэкранном режиме
-    openFullscreenPhoto(photoIndex) {
-        const product = this.products.find(p => p.id === this.selectedProductId);
-        if (!product || !product.photos || !product.photos[photoIndex]) return;
-        
-        // Создаем модальное окно если его нет
-        let modal = document.getElementById('fullscreenPhotoModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.className = 'fullscreen-photo-modal';
-            modal.id = 'fullscreenPhotoModal';
-            modal.innerHTML = `
-                <button class="close-fullscreen" id="closeFullscreen">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="fullscreen-photo-container">
-                    <img class="fullscreen-photo" id="fullscreenPhoto" src="" alt="Полноэкранное фото">
-                </div>
-            `;
-            document.body.appendChild(modal);
-            
-            // Добавляем обработчик закрытия
-            document.getElementById('closeFullscreen').addEventListener('click', () => {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            });
-            
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            });
-        }
-        
-        const photo = document.getElementById('fullscreenPhoto');
-        photo.src = product.photos[photoIndex];
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-    
-    // Инициализация полноэкранного просмотра
-    initFullscreenPhoto() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('fullscreenPhotoModal');
-                if (modal && modal.classList.contains('active')) {
-                    modal.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            }
-        });
-    }
-    
+
     // ========== ИНИЦИАЛИЗАЦИЯ ОБРАБОТЧИКОВ СОБЫТИЙ ==========
-    
+
     initEventListeners() {
         console.log('Инициализация обработчиков событий...');
         
@@ -2718,51 +2641,65 @@ updateUploadProgress(current, total) {
         });
         
         // Настройки качества фото
-    document.querySelectorAll('.quality-option').forEach(option => {
-        option.addEventListener('click', () => {
-            // Убираем активный класс у всех
-            document.querySelectorAll('.quality-option').forEach(opt => {
-                opt.classList.remove('active');
+        document.querySelectorAll('.quality-option').forEach(option => {
+            option.addEventListener('click', () => {
+                // Убираем активный класс у всех
+                document.querySelectorAll('.quality-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                
+                // Добавляем активный класс выбранному
+                option.classList.add('active');
+                
+                // Сохраняем настройку
+                this.currentCompression = option.dataset.quality;
+                
+                this.showToast('Настройки', `Качество фото: ${this.getCompressionName(this.currentCompression)}`, 'info');
             });
-            
-            // Добавляем активный класс выбранному
-            option.classList.add('active');
-            
-            // Сохраняем настройку
-            this.currentCompression = option.dataset.quality;
-            
-            this.showToast('Настройки', `Качество фото: ${this.getCompressionName(this.currentCompression)}`, 'info');
         });
-    });
-    
 
         // Кнопка добавления товара
-        document.getElementById('addProductBtn')?.addEventListener('click', () => {
-            this.switchPage('addProduct');
-            // Сбрасываем форму
-            document.getElementById('addProductForm')?.reset();
-            document.getElementById('photoPreviewSection').style.display = 'none';
-            document.getElementById('phoneStatusGroup').style.display = 'none';
-            this.tempPhotos = [];
-        });
+        const addProductBtn = document.getElementById('addProductBtn');
+        if (addProductBtn) {
+            addProductBtn.addEventListener('click', () => {
+                this.switchPage('addProduct');
+                // Сбрасываем форму
+                const addProductForm = document.getElementById('addProductForm');
+                if (addProductForm) addProductForm.reset();
+                
+                const photoPreviewSection = document.getElementById('photoPreviewSection');
+                if (photoPreviewSection) photoPreviewSection.style.display = 'none';
+                
+                const phoneStatusGroup = document.getElementById('phoneStatusGroup');
+                if (phoneStatusGroup) phoneStatusGroup.style.display = 'none';
+                
+                this.tempPhotos = [];
+            });
+        }
         
         // Кнопка запчастей в шапке
-        document.getElementById('partsBtn')?.addEventListener('click', () => {
-            this.switchPage('parts');
-        });
+        const partsBtn = document.getElementById('partsBtn');
+        if (partsBtn) {
+            partsBtn.addEventListener('click', () => {
+                this.switchPage('parts');
+            });
+        }
         
         // Кнопка профиля
-        document.getElementById('profileBtn')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const modal = document.getElementById('profileModal');
-            if (modal) {
-                modal.classList.toggle('active');
-            }
-            
-            if (!this.currentUser) {
-                this.openAuthModal();
-            }
-        });
+        const profileBtn = document.getElementById('profileBtn');
+        if (profileBtn) {
+            profileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const modal = document.getElementById('profileModal');
+                if (modal) {
+                    modal.classList.toggle('active');
+                }
+                
+                if (!this.currentUser) {
+                    this.openAuthModal();
+                }
+            });
+        }
         
         // Закрытие профиля при клике снаружи
         document.addEventListener('click', (e) => {
@@ -2775,42 +2712,60 @@ updateUploadProgress(current, total) {
         });
         
         // Выход из системы
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            this.logout();
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+            });
+        }
         
         // Кнопка статистики в профиле
-        document.getElementById('profileStatistics')?.addEventListener('click', () => {
-            document.getElementById('profileModal')?.classList.remove('active');
-            this.switchPage('statistics');
-        });
+        const profileStatistics = document.getElementById('profileStatistics');
+        if (profileStatistics) {
+            profileStatistics.addEventListener('click', () => {
+                const profileModal = document.getElementById('profileModal');
+                if (profileModal) profileModal.classList.remove('active');
+                this.switchPage('statistics');
+            });
+        }
         
         // Поиск
-        document.getElementById('searchBtn')?.addEventListener('click', () => {
-            const container = document.getElementById('searchContainer');
-            if (container) {
-                container.classList.toggle('active');
-                
-                if (container.classList.contains('active')) {
-                    document.getElementById('searchInput')?.focus();
+        const searchBtn = document.getElementById('searchBtn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                const container = document.getElementById('searchContainer');
+                if (container) {
+                    container.classList.toggle('active');
+                    
+                    if (container.classList.contains('active')) {
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) searchInput.focus();
+                    }
                 }
-            }
-        });
+            });
+        }
         
-        document.getElementById('searchInput')?.addEventListener('input', (e) => {
-            this.searchQuery = e.target.value.trim();
-            if (this.currentPage === 'warehouse') {
-                this.renderWarehouse();
-            }
-        });
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchQuery = e.target.value.trim();
+                if (this.currentPage === 'warehouse') {
+                    this.renderWarehouse();
+                }
+            });
+        }
         
-        document.getElementById('clearSearchBtn')?.addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
-            this.searchQuery = '';
-            if (this.currentPage === 'warehouse') {
-                this.renderWarehouse();
-            }
-        });
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = '';
+                this.searchQuery = '';
+                if (this.currentPage === 'warehouse') {
+                    this.renderWarehouse();
+                }
+            });
+        }
         
         // Фильтры на складе
         document.querySelectorAll('.filter-tab[data-filter]').forEach(tab => {
@@ -2852,10 +2807,13 @@ updateUploadProgress(current, total) {
         });
         
         // Сортировка
-        document.getElementById('sortSelect')?.addEventListener('change', (e) => {
-            this.currentSort = e.target.value;
-            this.renderWarehouse();
-        });
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', (e) => {
+                this.currentSort = e.target.value;
+                this.renderWarehouse();
+            });
+        }
         
         // Категории на складе
         document.querySelectorAll('.category-card').forEach(card => {
@@ -2902,51 +2860,51 @@ updateUploadProgress(current, total) {
         });
         
         // Кнопки "Назад"
-        document.getElementById('backFromWarehouse')?.addEventListener('click', () => {
-            this.switchPage('home');
-        });
+        const backButtons = {
+            'backFromWarehouse': 'home',
+            'backFromAdd': 'home',
+            'backFromEdit': () => this.selectedProductId ? 'productDetail' : 'warehouse',
+            'backFromDetail': 'warehouse',
+            'backFromParts': 'home',
+            'backFromStatistics': 'home'
+        };
         
-        document.getElementById('backFromAdd')?.addEventListener('click', () => {
-            this.switchPage('home');
-        });
-        
-        document.getElementById('backFromEdit')?.addEventListener('click', () => {
-            if (this.selectedProductId) {
-                this.switchPage('productDetail');
-            } else {
-                this.switchPage('warehouse');
+        Object.entries(backButtons).forEach(([buttonId, targetPage]) => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.addEventListener('click', () => {
+                    if (typeof targetPage === 'function') {
+                        this.switchPage(targetPage());
+                    } else {
+                        this.switchPage(targetPage);
+                    }
+                });
             }
-        });
-        
-        document.getElementById('backFromDetail')?.addEventListener('click', () => {
-            this.switchPage('warehouse');
-        });
-        
-        document.getElementById('backFromParts')?.addEventListener('click', () => {
-            this.switchPage('home');
-        });
-        
-        document.getElementById('backFromStatistics')?.addEventListener('click', () => {
-            this.switchPage('home');
         });
         
         // Форма добавления товара
         const addForm = document.getElementById('addProductForm');
         if (addForm) {
             // Показ/скрытие поля статуса телефона
-            document.getElementById('productCategory')?.addEventListener('change', (e) => {
-                const phoneStatusGroup = document.getElementById('phoneStatusGroup');
-                if (phoneStatusGroup) {
-                    phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
-                }
-            });
+            const productCategory = document.getElementById('productCategory');
+            if (productCategory) {
+                productCategory.addEventListener('change', (e) => {
+                    const phoneStatusGroup = document.getElementById('phoneStatusGroup');
+                    if (phoneStatusGroup) {
+                        phoneStatusGroup.style.display = e.target.value === 'phones' ? 'block' : 'none';
+                    }
+                });
+            }
             
             // Загрузка фото при добавлении товара
-            document.getElementById('photoInput')?.addEventListener('change', async (e) => {
-                const photos = await this.handlePhotoUpload(e.target);
-                this.tempPhotos = photos;
-                this.showPhotoPreview(photos);
-            });
+            const photoInput = document.getElementById('photoInput');
+            if (photoInput) {
+                photoInput.addEventListener('change', async (e) => {
+                    const photos = await this.handlePhotoUpload(e.target);
+                    this.tempPhotos = photos;
+                    this.showPhotoPreview(photos);
+                });
+            }
             
             addForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -2985,108 +2943,143 @@ updateUploadProgress(current, total) {
                     return;
                 }
                 
-                // Добавляем товар через Firebase
+                // Добавляем товар через Supabase
                 await this.addNewProduct(formData);
                 
                 // Сбрасываем форму
                 e.target.reset();
-                document.getElementById('photoPreviewSection').style.display = 'none';
-                document.getElementById('phoneStatusGroup').style.display = 'none';
+                const photoPreviewSection = document.getElementById('photoPreviewSection');
+                if (photoPreviewSection) photoPreviewSection.style.display = 'none';
+                
+                const phoneStatusGroup = document.getElementById('phoneStatusGroup');
+                if (phoneStatusGroup) phoneStatusGroup.style.display = 'none';
+                
                 this.tempPhotos = [];
             });
         }
         
         // Отмена добавления
-        document.getElementById('cancelAddBtn')?.addEventListener('click', () => {
-            document.getElementById('addProductForm')?.reset();
-            document.getElementById('photoPreviewSection').style.display = 'none';
-            document.getElementById('phoneStatusGroup').style.display = 'none';
-            this.tempPhotos = [];
-            this.switchPage('home');
-        });
+        const cancelAddBtn = document.getElementById('cancelAddBtn');
+        if (cancelAddBtn) {
+            cancelAddBtn.addEventListener('click', () => {
+                const addProductForm = document.getElementById('addProductForm');
+                if (addProductForm) addProductForm.reset();
+                
+                const photoPreviewSection = document.getElementById('photoPreviewSection');
+                if (photoPreviewSection) photoPreviewSection.style.display = 'none';
+                
+                const phoneStatusGroup = document.getElementById('phoneStatusGroup');
+                if (phoneStatusGroup) phoneStatusGroup.style.display = 'none';
+                
+                this.tempPhotos = [];
+                this.switchPage('home');
+            });
+        }
         
         // Продажа товара
-        document.getElementById('confirmSellBtn')?.addEventListener('click', () => {
-            const sellingPrice = parseInt(document.getElementById('sellingPrice')?.value) || 0;
-            const notes = document.getElementById('saleNotes')?.value.trim() || '';
-            const saleSource = document.getElementById('saleSource')?.value || 'avito';
-            
-            if (sellingPrice <= 0) {
-                this.showToast('Ошибка', 'Введите корректную цену продажи', 'error');
-                return;
-            }
-            
-            if (this.selectedProductId) {
-                this.sellProduct(this.selectedProductId, sellingPrice, notes, saleSource);
-            }
-        });
+        const confirmSellBtn = document.getElementById('confirmSellBtn');
+        if (confirmSellBtn) {
+            confirmSellBtn.addEventListener('click', () => {
+                const sellingPrice = parseInt(document.getElementById('sellingPrice')?.value) || 0;
+                const notes = document.getElementById('saleNotes')?.value.trim() || '';
+                const saleSource = document.getElementById('saleSource')?.value || 'avito';
+                
+                if (sellingPrice <= 0) {
+                    this.showToast('Ошибка', 'Введите корректную цену продажи', 'error');
+                    return;
+                }
+                
+                if (this.selectedProductId) {
+                    this.sellProduct(this.selectedProductId, sellingPrice, notes, saleSource);
+                }
+            });
+        }
         
         // Удаление товара
-        document.getElementById('confirmDeleteBtn')?.addEventListener('click', () => {
-            if (this.selectedProductId) {
-                this.deleteProduct(this.selectedProductId);
-            }
-        });
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (this.selectedProductId) {
+                    this.deleteProduct(this.selectedProductId);
+                }
+            });
+        }
         
         // Закрытие модальных окон
         const closeModal = (modalId) => {
-            document.getElementById(modalId)?.classList.remove('active');
-            document.getElementById('modalOverlay')?.classList.remove('active');
+            const modal = document.getElementById(modalId);
+            const modalOverlay = document.getElementById('modalOverlay');
+            
+            if (modal) modal.classList.remove('active');
+            if (modalOverlay) modalOverlay.classList.remove('active');
         };
         
-        document.getElementById('closeSellModal')?.addEventListener('click', () => closeModal('sellModal'));
-        document.getElementById('closeDeleteModal')?.addEventListener('click', () => closeModal('deleteModal'));
-        document.getElementById('cancelSellBtn')?.addEventListener('click', () => closeModal('sellModal'));
-        document.getElementById('cancelDeleteBtn')?.addEventListener('click', () => closeModal('deleteModal'));
+        const closeButtons = {
+            'closeSellModal': 'sellModal',
+            'closeDeleteModal': 'deleteModal',
+            'cancelSellBtn': 'sellModal',
+            'cancelDeleteBtn': 'deleteModal'
+        };
         
-        document.getElementById('modalOverlay')?.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('active'));
-            document.getElementById('modalOverlay')?.classList.remove('active');
+        Object.entries(closeButtons).forEach(([buttonId, modalId]) => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                button.addEventListener('click', () => closeModal(modalId));
+            }
         });
+        
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('active'));
+                modalOverlay.classList.remove('active');
+            });
+        }
         
         // Добавление запчастей вручную
-        document.getElementById('addPartBtn')?.addEventListener('click', async () => {
-            const partInput = document.getElementById('newPart');
-            const partName = partInput?.value.trim();
-            
-            if (partName) {
-                this.setButtonLoading('addPartBtn', true);
-                await this.addRequiredPart(partName);
-                partInput.value = '';
-                this.renderPartsList();
-                this.setButtonLoading('addPartBtn', false);
-                this.showToast('Успех', 'Запчасть добавлена', 'success');
-            } else {
-                this.showToast('Ошибка', 'Введите название запчасти', 'error');
-            }
-        });
+        const addPartBtn = document.getElementById('addPartBtn');
+        if (addPartBtn) {
+            addPartBtn.addEventListener('click', async () => {
+                const partInput = document.getElementById('newPart');
+                const partName = partInput?.value.trim();
+                
+                if (partName) {
+                    this.setButtonLoading('addPartBtn', true);
+                    await this.addRequiredPart(partName);
+                    if (partInput) partInput.value = '';
+                    this.renderPartsList();
+                    this.setButtonLoading('addPartBtn', false);
+                    this.showToast('Успех', 'Запчасть добавлена', 'success');
+                } else {
+                    this.showToast('Ошибка', 'Введите название запчасти', 'error');
+                }
+            });
+        }
         
         // Ввод в поле добавления запчастей (Enter для добавления)
-        document.getElementById('newPart')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('addPartBtn')?.click();
-            }
-        });
+        const newPartInput = document.getElementById('newPart');
+        if (newPartInput) {
+            newPartInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const addPartBtn = document.getElementById('addPartBtn');
+                    if (addPartBtn) addPartBtn.click();
+                }
+            });
+        }
         
         // Авторизация
         this.initAuthEventListeners();
     }
-    getCompressionName(level) {
-        const names = {
-            high: 'Высокое',
-            medium: 'Среднее',
-            low: 'Экономное'
-        };
-        return names[level] || 'Высокое';
-    }
-    
-    // Инициализация обработчиков событий авторизации
+
     initAuthEventListeners() {
         // Закрытие окна авторизации
-        document.getElementById('closeAuthModal')?.addEventListener('click', () => {
-            this.closeAuthModal();
-        });
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        if (closeAuthModal) {
+            closeAuthModal.addEventListener('click', () => {
+                this.closeAuthModal();
+            });
+        }
         
         // Переключение между вкладками авторизации
         document.querySelectorAll('.auth-tab').forEach(tab => {
@@ -3112,19 +3105,24 @@ updateUploadProgress(current, total) {
         });
         
         // Форма входа
-        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.handleLogin();
-        });
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.handleLogin();
+            });
+        }
         
         // Форма регистрации
-        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.handleRegister();
-        });
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.handleRegister();
+            });
+        }
     }
-    
-    // Переключение вкладок авторизации
+
     switchAuthTab(tabName) {
         // Обновляем активные вкладки
         document.querySelectorAll('.auth-tab').forEach(tab => {
@@ -3136,12 +3134,118 @@ updateUploadProgress(current, total) {
             form.classList.toggle('active', form.dataset.form === tabName);
         });
     }
+
+    getCompressionName(level) {
+        const names = {
+            high: 'Высокое',
+            medium: 'Среднее',
+            low: 'Экономное'
+        };
+        return names[level] || 'Высокое';
+    }
+
+    isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    showIOSWarning() {
+        const warning = document.createElement('div');
+        warning.className = 'ios-warning';
+        warning.innerHTML = `
+            <i class="fas fa-mobile-alt"></i>
+            <strong>iOS устройство:</strong> Обработка фото может занять несколько секунд
+        `;
+        
+        const addProductPage = document.getElementById('addProductPage');
+        if (addProductPage) {
+            const form = addProductPage.querySelector('.add-product-form');
+            if (form) {
+                form.insertBefore(warning, form.firstChild);
+            }
+        }
+    }
+
+    initFullscreenPhoto() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('fullscreenPhotoModal');
+                if (modal && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
+        });
+    }
+
+    initPhotoViewers() {
+        // Обработчик для основной фотографии
+        const mainPhoto = document.querySelector('.product-detail-image');
+        if (mainPhoto && mainPhoto.dataset.photoIndex !== undefined) {
+            mainPhoto.addEventListener('click', () => {
+                this.openFullscreenPhoto(parseInt(mainPhoto.dataset.photoIndex));
+            });
+        }
+        
+        // Обработчики для миниатюр
+        document.querySelectorAll('.photo-thumbnail').forEach(thumbnail => {
+            thumbnail.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const photoIndex = parseInt(thumbnail.dataset.photoIndex);
+                this.openFullscreenPhoto(photoIndex);
+            });
+        });
+    }
+
+    openFullscreenPhoto(photoIndex) {
+        const product = this.products.find(p => p.id === this.selectedProductId);
+        if (!product || !product.photos || !product.photos[photoIndex]) return;
+        
+        // Создаем модальное окно если его нет
+        let modal = document.getElementById('fullscreenPhotoModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'fullscreen-photo-modal';
+            modal.id = 'fullscreenPhotoModal';
+            modal.innerHTML = `
+                <button class="close-fullscreen" id="closeFullscreen">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="fullscreen-photo-container">
+                    <img class="fullscreen-photo" id="fullscreenPhoto" src="" alt="Полноэкранное фото">
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Добавляем обработчик закрытия
+            const closeFullscreen = document.getElementById('closeFullscreen');
+            if (closeFullscreen) {
+                closeFullscreen.addEventListener('click', () => {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                });
+            }
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+        
+        const photo = document.getElementById('fullscreenPhoto');
+        if (photo) {
+            photo.src = product.photos[photoIndex];
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
 }
 
 // Запуск приложения при загрузке страницы
 let app;
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM загружен, запускаем приложение...');
+    console.log('DOM загружен, запускаем приложение с Supabase...');
     app = new iPhoneTraderApp();
 });
 
@@ -3157,4 +3261,7 @@ function showToast(title, message, type) {
 // Функция для удаления запчасти (глобальная)
 window.removePart = function(partId) {
     if (app) app.removePart(partId);
-}
+};
+
+// Экспортируем app для глобального доступа
+window.app = app;

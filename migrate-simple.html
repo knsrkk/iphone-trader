@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простая миграция Firebase → Supabase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.5;
+            text-align: center;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007AFF;
+        }
+        
+        .step h3 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #007AFF;
+        }
+        
+        .input-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .progress {
+            margin: 30px 0;
+            display: none;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #007AFF;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #007AFF;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056cc;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .logs {
+            margin-top: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 14px;
+            height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .time {
+            color: #888;
+            margin-right: 10px;
+        }
+        
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 → 🟢 Миграция данных</h1>
+        <p class="description">Перенос данных из Firebase Firestore в Supabase</p>
+        
+        <div class="step">
+            <h3>📋 Подготовка</h3>
+            <p>Перед миграцией выполните в <b>Supabase SQL Editor</b>:</p>
+            <pre style="background: #1a1a1a; color: #4CAF50; padding: 15px; border-radius: 8px; margin: 10px 0; overflow-x: auto; font-size: 13px;">-- Изменяем тип auth_uid на TEXT (Firebase UID не UUID)
+ALTER TABLE users ALTER COLUMN auth_uid TYPE TEXT;
+ALTER TABLE users ALTER COLUMN auth_uid DROP NOT NULL;</pre>
+            <p style="margin-top: 15px;">Также убедитесь что:</p>
+            <ul style="margin-left: 20px; margin-top: 10px; color: #666;">
+                <li>Таблицы в Supabase созданы (users, products, parts)</li>
+                <li>У вас есть доступ к Firebase проекту</li>
+                <li>Вы получили <b>service_role</b> ключ из Supabase (НЕ anon key!)</li>
+            </ul>
+        </div>
+        
+        <div class="step">
+            <h3>🔑 Ключи доступа</h3>
+            
+            <div class="input-group">
+                <label for="firebaseConfig">Firebase Config JSON:</label>
+                <textarea id="firebaseConfig" rows="8"></textarea>
+                <small style="color: #888; display: block; margin-top: 5px;">
+                    Где взять: Firebase Console → Project Settings → General → Your apps → SDK setup → Config<br>
+                    Скопируйте объект <code>firebaseConfig</code> целиком (включая фигурные скобки)
+                </small>
+            </div>
+            
+            <div class="input-group">
+                <label for="supabaseUrl">Supabase URL:</label>
+                <input type="text" id="supabaseUrl" 
+                       value="https://ooihrxpzbzdkrwhyizgb.supabase.co"
+                       placeholder="https://xxx.supabase.co">
+            </div>
+            
+            <div class="input-group">
+                <label for="serviceKey">Supabase Service Role Key:</label>
+                <input type="password" id="serviceKey" 
+                       placeholder="Введите service_role ключ">
+                <small style="color: #888; display: block; margin-top: 5px;">
+                    Найти: Supabase Dashboard → Settings → API → service_role (НЕ anon key!)
+                </small>
+            </div>
+        </div>
+        
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Готово к миграции</div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn btn-primary" id="startBtn">
+                🚀 Начать миграцию
+            </button>
+            <button class="btn btn-secondary" id="testBtn">
+                🔍 Тест подключения
+            </button>
+            <button class="btn btn-secondary" id="exampleBtn">
+                📋 Пример конфига
+            </button>
+        </div>
+        
+        <div class="buttons" style="margin-top: 15px;">
+            <button class="btn" id="clearBtn" style="background: #f44336; color: white;">
+                🗑️ Очистить Supabase
+            </button>
+        </div>
+        
+        <div class="logs" id="logs">
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Элементы DOM
+        const startBtn = document.getElementById('startBtn');
+        const testBtn = document.getElementById('testBtn');
+        const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const logs = document.getElementById('logs');
+        const logContent = document.getElementById('logContent');
+        const firebaseConfigInput = document.getElementById('firebaseConfig');
+        const serviceKeyInput = document.getElementById('serviceKey');
+        const supabaseUrlInput = document.getElementById('supabaseUrl');
+        const exampleBtn = document.getElementById('exampleBtn');
+        
+        let supabaseClient = null;
+        
+        // Показать пример конфига
+        exampleBtn.addEventListener('click', () => {
+            const exampleConfig = `{
+  "apiKey": "AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project",
+  "storageBucket": "your-project.firebasestorage.app",
+  "messagingSenderId": "123456789012",
+  "appId": "1:123456789012:web:abcdef1234567890"
+}`;
+            firebaseConfigInput.value = exampleConfig;
+            firebaseConfigInput.style.borderColor = '#ff9800';
+            alert('Это ПРИМЕР! Замените значения на ваши реальные данные из Firebase Console.');
+        });
+        
+        // Очистить Supabase
+        const clearBtn = document.getElementById('clearBtn');
+        clearBtn.addEventListener('click', async () => {
+            const serviceKey = serviceKeyInput.value.trim();
+            const supabaseUrl = supabaseUrlInput.value.trim();
+            
+            if (!supabaseUrl || !serviceKey) {
+                alert('Введите Supabase URL и Service Role Key!');
+                return;
+            }
+            
+            const confirmed = confirm(
+                '⚠️ ВНИМАНИЕ! Это удалит ВСЕ данные из Supabase:\n\n' +
+                '• Все товары (products)\n' +
+                '• Все запчасти (parts)\n' +
+                '• Всех пользователей (users)\n\n' +
+                'Данные будут БЕЗВОЗВРАТНО удалены!\n\n' +
+                'Вы уверены?'
+            );
+            
+            if (!confirmed) return;
+            
+            const doubleConfirmed = confirm(
+                '🔴 ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ!\n\n' +
+                'Вы точно хотите удалить ВСЕ данные?\n\n' +
+                'Нажмите OK для подтверждения.'
+            );
+            
+            if (!doubleConfirmed) return;
+            
+            try {
+                clearBtn.disabled = true;
+                clearBtn.textContent = '⏳ Удаление...';
+                
+                log('warning', '🗑️ Начинаю очистку Supabase...');
+                
+                supabaseClient = supabase.createClient(supabaseUrl, serviceKey);
+                
+                // Удаляем в правильном порядке (из-за foreign keys)
+                // Сначала products и parts (они ссылаются на users)
+                
+                log('info', '🗑️ Удаляю товары...');
+                const { error: productsError } = await supabaseClient
+                    .from('products')
+                    .delete()
+                    .gte('id', 0); // Удаляем ВСЕ записи где id >= 0
+                
+                if (productsError) {
+                    log('warning', `⚠️ Ошибка удаления товаров: ${productsError.message}`);
+                    // Пробуем альтернативный способ
+                    log('info', '🔄 Пробую альтернативный способ...');
+                    const { data: allProducts } = await supabaseClient.from('products').select('id');
+                    if (allProducts && allProducts.length > 0) {
+                        for (const p of allProducts) {
+                            await supabaseClient.from('products').delete().eq('id', p.id);
+                        }
+                        log('success', `✅ Удалено товаров: ${allProducts.length}`);
+                    }
+                } else {
+                    log('success', '✅ Товары удалены');
+                }
+                
+                log('info', '🗑️ Удаляю запчасти...');
+                const { error: partsError } = await supabaseClient
+                    .from('parts')
+                    .delete()
+                    .gte('id', 0);
+                
+                if (partsError) {
+                    log('warning', `⚠️ Ошибка удаления запчастей: ${partsError.message}`);
+                    const { data: allParts } = await supabaseClient.from('parts').select('id');
+                    if (allParts && allParts.length > 0) {
+                        for (const p of allParts) {
+                            await supabaseClient.from('parts').delete().eq('id', p.id);
+                        }
+                        log('success', `✅ Удалено запчастей: ${allParts.length}`);
+                    }
+                } else {
+                    log('success', '✅ Запчасти удалены');
+                }
+                
+                log('info', '🗑️ Удаляю пользователей...');
+                const { error: usersError } = await supabaseClient
+                    .from('users')
+                    .delete()
+                    .gte('id', 0);
+                
+                if (usersError) {
+                    log('warning', `⚠️ Ошибка удаления пользователей: ${usersError.message}`);
+                    const { data: allUsers } = await supabaseClient.from('users').select('id');
+                    if (allUsers && allUsers.length > 0) {
+                        for (const u of allUsers) {
+                            await supabaseClient.from('users').delete().eq('id', u.id);
+                        }
+                        log('success', `✅ Удалено пользователей: ${allUsers.length}`);
+                    }
+                } else {
+                    log('success', '✅ Пользователи удалены');
+                }
+                
+                // Проверяем что всё удалено
+                const { data: checkProducts } = await supabaseClient.from('products').select('id');
+                const { data: checkParts } = await supabaseClient.from('parts').select('id');
+                const { data: checkUsers } = await supabaseClient.from('users').select('id');
+                
+                log('info', `📊 Осталось: товаров=${checkProducts?.length || 0}, запчастей=${checkParts?.length || 0}, пользователей=${checkUsers?.length || 0}`);
+                
+                log('success', '🎉 Supabase очищен!');
+                alert('✅ Supabase успешно очищен!');
+                
+            } catch (error) {
+                log('error', `💥 Ошибка очистки: ${error.message}`);
+                alert('Ошибка: ' + error.message);
+            } finally {
+                clearBtn.disabled = false;
+                clearBtn.textContent = '🗑️ Очистить Supabase';
+            }
+        });
+        
+        // Логирование
+        function log(type, message) {
+            const time = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="time">${time}</span> <span class="${type}">${message}</span>`;
+            
+            logContent.appendChild(logEntry);
+            logContent.scrollTop = logContent.scrollHeight;
+            logs.style.display = 'block';
+            
+            // Также в консоль
+            console.log(`[${time}] ${message}`);
+        }
+        
+        function updateProgress(percent, text) {
+            progress.style.display = 'block';
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+        
+        // Тест подключения
+        testBtn.addEventListener('click', async () => {
+            const serviceKey = serviceKeyInput.value.trim();
+            const supabaseUrl = supabaseUrlInput.value.trim();
+            
+            if (!supabaseUrl) {
+                alert('Введите Supabase URL!');
+                return;
+            }
+            
+            if (!serviceKey) {
+                alert('Введите service_role ключ!');
+                return;
+            }
+            
+            try {
+                log('info', '🔗 Тестирую подключение к Supabase...');
+                log('info', `📍 URL: ${supabaseUrl}`);
+                
+                supabaseClient = supabase.createClient(supabaseUrl, serviceKey);
+                
+                // Простой запрос для теста
+                const { data, error } = await supabaseClient
+                    .from('users')
+                    .select('count')
+                    .limit(1);
+                
+                if (error) {
+                    log('error', `❌ Ошибка подключения: ${error.message}`);
+                } else {
+                    log('success', '✅ Подключение к Supabase успешно!');
+                }
+                
+            } catch (error) {
+                log('error', `💥 Ошибка: ${error.message}`);
+            }
+        });
+        
+        // Основная миграция
+        startBtn.addEventListener('click', async () => {
+            const firebaseConfigStr = firebaseConfigInput.value.trim();
+            const serviceKey = serviceKeyInput.value.trim();
+            const supabaseUrl = supabaseUrlInput.value.trim();
+            
+            if (!firebaseConfigStr) {
+                alert('Введите конфиг Firebase!');
+                return;
+            }
+            
+            if (!supabaseUrl) {
+                alert('Введите Supabase URL!');
+                return;
+            }
+            
+            if (!serviceKey) {
+                alert('Введите service_role ключ Supabase!');
+                return;
+            }
+            
+            try {
+                // Парсим конфиг Firebase
+                let firebaseConfig;
+                try {
+                    firebaseConfig = JSON.parse(firebaseConfigStr);
+                } catch (jsonError) {
+                    log('error', '❌ Неверный формат JSON в конфиге Firebase!');
+                    log('error', `Ошибка: ${jsonError.message}`);
+                    log('info', '💡 Убедитесь что вы скопировали весь конфиг из Firebase Console');
+                    log('info', '💡 Firebase Console → Project Settings → General → Your apps → Config');
+                    alert('Неверный JSON формат! Проверьте конфиг Firebase.\n\nПодсказка: скопируйте конфиг из Firebase Console → Project Settings → Config');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🚀 Начать миграцию';
+                    testBtn.disabled = false;
+                    return;
+                }
+                
+                // Проверяем обязательные поля
+                if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+                    log('error', '❌ В конфиге отсутствуют обязательные поля (apiKey, projectId)');
+                    alert('В конфиге Firebase отсутствуют обязательные поля!');
+                    return;
+                }
+                
+                // Блокируем кнопки
+                startBtn.disabled = true;
+                startBtn.textContent = '⏳ Миграция...';
+                testBtn.disabled = true;
+                
+                // Показываем прогресс
+                updateProgress(5, 'Подготовка...');
+                log('info', '🚀 Начинаю миграцию данных...');
+                
+                // Инициализация Supabase
+                supabaseClient = supabase.createClient(supabaseUrl, serviceKey);
+                log('info', `✅ Supabase клиент создан (${supabaseUrl})`);
+                
+                // Загружаем Firebase SDK динамически
+                log('info', '📦 Загружаю Firebase SDK...');
+                
+                // Способ 1: Используем CDN с script тегами
+                await loadFirebaseSDK();
+                
+                // Инициализация Firebase
+                const firebaseApp = firebase.initializeApp(firebaseConfig);
+                const db = firebase.firestore();
+                
+                log('success', '✅ Firebase подключен');
+                updateProgress(20, 'Firebase подключен');
+                
+                // Миграция данных
+                await migrateAllData(db, supabaseClient);
+                
+                // Завершение
+                updateProgress(100, 'Миграция завершена!');
+                log('success', '🎉 МИГРАЦИЯ ЗАВЕРШЕНА УСПЕШНО!');
+                
+                startBtn.textContent = '✅ Готово';
+                
+            } catch (error) {
+                log('error', `💥 Ошибка миграции: ${error.message}`);
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 Начать миграцию';
+                testBtn.disabled = false;
+            }
+        });
+        
+        // Динамическая загрузка Firebase SDK
+        function loadFirebaseSDK() {
+            return new Promise((resolve, reject) => {
+                // Проверяем, уже загружен ли Firebase
+                if (window.firebase) {
+                    log('info', 'Firebase уже загружен');
+                    resolve();
+                    return;
+                }
+                
+                log('info', 'Загружаю Firebase SDK...');
+                
+                // Создаем script теги
+                const scripts = [
+                    'https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js',
+                    'https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js'
+                ];
+                
+                let loaded = 0;
+                
+                scripts.forEach(src => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = () => {
+                        loaded++;
+                        if (loaded === scripts.length) {
+                            log('success', '✅ Firebase SDK загружен');
+                            resolve();
+                        }
+                    };
+                    script.onerror = () => {
+                        log('error', `❌ Ошибка загрузки ${src}`);
+                        reject(new Error(`Не удалось загрузить ${src}`));
+                    };
+                    document.head.appendChild(script);
+                });
+            });
+        }
+        
+        // Основная функция миграции
+        async function migrateAllData(db, supabase) {
+            // Проверяем структуру таблицы users
+            log('info', '🔍 Проверяю структуру таблицы users...');
+            
+            // 1. Сначала создаем пользователей
+            log('info', '👥 Ищу пользователей в Firebase...');
+            
+            const usersSnapshot = await db.collection('users').get();
+            log('info', `📊 Найдено пользователей: ${usersSnapshot.size}`);
+            
+            // Мап для связи Firebase uid → Supabase id
+            const userMap = {};
+            let userIndex = 0;
+            
+            for (const userDoc of usersSnapshot.docs) {
+                const userData = userDoc.data();
+                const firebaseUid = userData.uid || userDoc.id;
+                const userEmail = userData.email || `user_${userIndex}@migrated.local`;
+                const userName = userData.name || userEmail.split('@')[0] || 'Пользователь';
+                
+                try {
+                    // Сначала проверяем, существует ли пользователь по email
+                    const { data: existingUser, error: selectError } = await supabase
+                        .from('users')
+                        .select('id, auth_uid')
+                        .eq('email', userEmail)
+                        .maybeSingle();
+                    
+                    if (selectError && selectError.message.includes('uuid')) {
+                        log('error', '❌ Колонка auth_uid имеет тип UUID!');
+                        log('error', '💡 Выполните в Supabase SQL Editor:');
+                        log('error', 'ALTER TABLE users ALTER COLUMN auth_uid TYPE TEXT;');
+                        throw new Error('Нужно изменить тип колонки auth_uid на TEXT');
+                    }
+                    
+                    if (existingUser) {
+                        userMap[firebaseUid] = existingUser.id;
+                        log('info', `ℹ️ Пользователь уже существует: ${userEmail} (id: ${existingUser.id})`);
+                    } else {
+                        // Вставляем нового пользователя БЕЗ auth_uid (оставим null)
+                        // auth_uid будет заполнен когда пользователь залогинится через Supabase Auth
+                        const supabaseUser = {
+                            name: userName,
+                            email: userEmail,
+                            is_admin: userData.isAdmin || false
+                        };
+                        
+                        const { data, error } = await supabase
+                            .from('users')
+                            .insert([supabaseUser])
+                            .select()
+                            .single();
+                        
+                        if (error) {
+                            // Если ошибка из-за дубликата email, попробуем найти
+                            if (error.message.includes('duplicate') || error.message.includes('unique')) {
+                                const { data: existingByEmail } = await supabase
+                                    .from('users')
+                                    .select('id')
+                                    .eq('email', userEmail)
+                                    .single();
+                                if (existingByEmail) {
+                                    userMap[firebaseUid] = existingByEmail.id;
+                                    log('info', `ℹ️ Пользователь найден по email: ${userEmail}`);
+                                    userIndex++;
+                                    continue;
+                                }
+                            }
+                            log('warning', `⚠️ Пользователь ${userEmail}: ${error.message}`);
+                        } else {
+                            userMap[firebaseUid] = data.id;
+                            log('success', `✅ Пользователь: ${userEmail} (id: ${data.id})`);
+                        }
+                    }
+                } catch (error) {
+                    log('error', `❌ Ошибка пользователя ${userEmail}: ${error.message}`);
+                    if (error.message.includes('auth_uid')) {
+                        throw error; // Прерываем миграцию если проблема с типом колонки
+                    }
+                }
+                
+                userIndex++;
+                updateProgress(20 + (userIndex / usersSnapshot.size * 15), 
+                              `Пользователи: ${userIndex}/${usersSnapshot.size}`);
+            }
+            
+            log('info', `📋 Карта пользователей: ${Object.keys(userMap).length} записей`);
+            
+            // 2. Миграция товаров
+            log('info', '📦 Ищу товары в Firebase...');
+            const productsSnapshot = await db.collection('products').get();
+            log('info', `📊 Найдено товаров: ${productsSnapshot.size}`);
+            
+            let productIndex = 0;
+            let productsAdded = 0;
+            let productsSkipped = 0;
+            
+            for (const productDoc of productsSnapshot.docs) {
+                const productData = productDoc.data();
+                
+                // Находим правильный user_id из нашего мапа
+                const firebaseUserId = productData.userId || productData.user_id;
+                const supabaseUserId = userMap[firebaseUserId];
+                
+                if (!supabaseUserId) {
+                    log('warning', `⚠️ Товар "${productData.name}" - пользователь ${firebaseUserId} не найден`);
+                    productsSkipped++;
+                    productIndex++;
+                    continue;
+                }
+                
+                // НЕ указываем id - пусть Supabase генерирует сам
+                const supabaseProduct = {
+                    user_id: supabaseUserId,
+                    name: productData.name || 'Без названия',
+                    description: productData.description || '',
+                    purchase_price: parseFloat(productData.purchasePrice) || parseFloat(productData.purchase_price) || 0,
+                    investment: parseFloat(productData.investment) || 0,
+                    selling_price: parseFloat(productData.sellingPrice) || parseFloat(productData.selling_price) || null,
+                    category: productData.category || 'phones',
+                    phone_status: productData.phoneStatus || productData.phone_status || null,
+                    purchase_source: productData.purchaseSource || productData.purchase_source || null,
+                    status: productData.status || 'in-stock',
+                    photos: productData.photos || [],
+                    required_parts: productData.requiredParts || productData.required_parts || '',
+                    sold_at: productData.soldAt?.toDate?.()?.toISOString() || productData.sold_at || null,
+                    sale_source: productData.saleSource || productData.sale_source || null,
+                    sale_notes: productData.saleNotes || productData.sale_notes || '',
+                    change_history: productData.changeHistory || productData.change_history || [],
+                    created_at: productData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+                    last_updated: new Date().toISOString()
+                };
+                
+                try {
+                    const { data, error } = await supabase
+                        .from('products')
+                        .insert([supabaseProduct])
+                        .select()
+                        .single();
+                    
+                    if (error) {
+                        log('warning', `⚠️ Товар "${productData.name}": ${error.message}`);
+                        productsSkipped++;
+                    } else {
+                        log('success', `✅ Товар: ${productData.name} (id: ${data.id})`);
+                        productsAdded++;
+                    }
+                } catch (error) {
+                    log('error', `❌ Ошибка товара "${productData.name}": ${error.message}`);
+                    productsSkipped++;
+                }
+                
+                productIndex++;
+                updateProgress(40 + (productIndex / productsSnapshot.size * 35), 
+                              `Товары: ${productIndex}/${productsSnapshot.size}`);
+            }
+            
+            log('info', `📊 Товары: добавлено ${productsAdded}, пропущено ${productsSkipped}`);
+            
+            // 3. Миграция запчастей
+            log('info', '🔧 Ищу запчасти в Firebase...');
+            const partsSnapshot = await db.collection('parts').get();
+            log('info', `📊 Найдено запчастей: ${partsSnapshot.size}`);
+            
+            let partIndex = 0;
+            let partsAdded = 0;
+            let partsSkipped = 0;
+            
+            for (const partDoc of partsSnapshot.docs) {
+                const partData = partDoc.data();
+                
+                const firebaseUserId = partData.userId || partData.user_id;
+                const supabaseUserId = userMap[firebaseUserId];
+                
+                if (!supabaseUserId) {
+                    log('warning', `⚠️ Запчасть "${partData.name}" - пользователь не найден`);
+                    partsSkipped++;
+                    partIndex++;
+                    continue;
+                }
+                
+                // НЕ указываем id
+                const supabasePart = {
+                    user_id: supabaseUserId,
+                    name: partData.name || 'Без названия',
+                    product: partData.product || '',
+                    source: partData.source || 'manual',
+                    created_at: partData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+                };
+                
+                try {
+                    const { data, error } = await supabase
+                        .from('parts')
+                        .insert([supabasePart])
+                        .select()
+                        .single();
+                    
+                    if (error) {
+                        log('warning', `⚠️ Запчасть "${partData.name}": ${error.message}`);
+                        partsSkipped++;
+                    } else {
+                        log('success', `✅ Запчасть: ${partData.name} (id: ${data.id})`);
+                        partsAdded++;
+                    }
+                } catch (error) {
+                    log('error', `❌ Ошибка запчасти "${partData.name}": ${error.message}`);
+                    partsSkipped++;
+                }
+                
+                partIndex++;
+                updateProgress(80 + (partIndex / partsSnapshot.size * 18), 
+                              `Запчасти: ${partIndex}/${partsSnapshot.size}`);
+            }
+            
+            log('info', `📊 Запчасти: добавлено ${partsAdded}, пропущено ${partsSkipped}`);
+            
+            // Итоги
+            log('success', '═══════════════════════════════════════');
+            log('success', `📊 ИТОГО МИГРАЦИИ:`);
+            log('success', `   👥 Пользователей: ${Object.keys(userMap).length}`);
+            log('success', `   📦 Товаров: ${productsAdded} добавлено, ${productsSkipped} пропущено`);
+            log('success', `   🔧 Запчастей: ${partsAdded} добавлено, ${partsSkipped} пропущено`);
+            log('success', '═══════════════════════════════════════');
+        }
+    </script>
+</body>
+</html>
